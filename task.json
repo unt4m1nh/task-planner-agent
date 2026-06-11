@@ -1,0 +1,1061 @@
+{
+  "tasks": [
+    {
+      "id": "manual-1781080915382",
+      "source": "manual",
+      "title": "Đấm Ngọc Anh",
+      "description": "",
+      "status": "todo",
+      "priority": "medium",
+      "assignee": null,
+      "creator": null,
+      "tags": [],
+      "due_date": null,
+      "created_at": "2026-06-10T08:41:55.382Z",
+      "updated_at": "2026-06-10T08:41:55.382Z",
+      "url": null,
+      "subtasks": [],
+      "attachments": [],
+      "comments_count": 0,
+      "estimate_hours": null,
+      "logged_hours": null
+    },
+    {
+      "id": "manual-1780989710131",
+      "source": "manual",
+      "title": "Đấm Thao",
+      "description": "",
+      "status": "in_progress",
+      "priority": "medium",
+      "assignee": null,
+      "creator": null,
+      "tags": [],
+      "due_date": null,
+      "created_at": "2026-06-09T07:21:50.131Z",
+      "updated_at": "2026-06-09T07:56:07.513Z",
+      "url": null,
+      "subtasks": [],
+      "attachments": [],
+      "comments_count": 0,
+      "estimate_hours": null,
+      "logged_hours": null
+    },
+    {
+      "id": "manual-1780912208182",
+      "source": "manual",
+      "title": "a new task",
+      "description": "",
+      "status": "todo",
+      "priority": "medium",
+      "assignee": null,
+      "creator": null,
+      "tags": [],
+      "due_date": null,
+      "created_at": "2026-06-08T09:50:08.182Z",
+      "updated_at": "2026-06-08T09:50:08.182Z",
+      "url": null,
+      "subtasks": [],
+      "attachments": [],
+      "comments_count": 0,
+      "estimate_hours": null,
+      "logged_hours": null
+    },
+    {
+      "id": "JIRA-1049",
+      "source": "jira",
+      "title": "Set up error monitoring with Sentry",
+      "description": "Integrate Sentry for frontend and backend error tracking. Configure alerts for P0/P1 errors and set up source map uploads in CI.",
+      "status": "done",
+      "priority": "high",
+      "assignee": {
+        "id": "user-001",
+        "name": "Alice Nguyen",
+        "email": "alice@company.com",
+        "avatar": "https://avatar.example.com/alice"
+      },
+      "creator": {
+        "id": "user-006",
+        "name": "Frank Ho",
+        "email": "frank@company.com"
+      },
+      "tags": [
+        "monitoring",
+        "devops",
+        "sentry"
+      ],
+      "due_date": "2026-05-25T00:00:00Z",
+      "created_at": "2026-05-10T08:00:00Z",
+      "updated_at": "2026-05-24T17:00:00Z",
+      "url": "https://company.atlassian.net/browse/JIRA-1049",
+      "subtasks": [
+        {
+          "id": "JIRA-1050",
+          "title": "Install Sentry SDK in frontend",
+          "status": "done"
+        },
+        {
+          "id": "JIRA-1051",
+          "title": "Install Sentry SDK in backend",
+          "status": "done"
+        },
+        {
+          "id": "JIRA-1052",
+          "title": "Configure source map upload in CI",
+          "status": "done"
+        }
+      ],
+      "attachments": [],
+      "comments_count": 4,
+      "estimate_hours": 8,
+      "logged_hours": 7
+    },
+    {
+      "id": "JIRA-1042",
+      "source": "jira",
+      "title": "Implement OAuth2 login flow",
+      "description": "Add OAuth2 authentication support for Google and GitHub providers. Must include token refresh logic and session handling.",
+      "status": "in_progress",
+      "priority": "high",
+      "assignee": {
+        "id": "user-001",
+        "name": "Alice Nguyen",
+        "email": "alice@company.com",
+        "avatar": "https://avatar.example.com/alice"
+      },
+      "creator": {
+        "id": "user-002",
+        "name": "Bob Tran",
+        "email": "bob@company.com"
+      },
+      "tags": [
+        "auth",
+        "backend",
+        "security"
+      ],
+      "due_date": "2026-06-15T00:00:00Z",
+      "created_at": "2026-05-20T08:30:00Z",
+      "updated_at": "2026-06-03T14:22:00Z",
+      "url": "https://company.atlassian.net/browse/JIRA-1042",
+      "subtasks": [
+        {
+          "id": "JIRA-1043",
+          "title": "Set up OAuth2 provider config",
+          "status": "done"
+        },
+        {
+          "id": "JIRA-1044",
+          "title": "Implement token refresh endpoint",
+          "status": "in_progress"
+        }
+      ],
+      "attachments": [],
+      "comments_count": 7,
+      "estimate_hours": 16,
+      "logged_hours": 9
+    },
+    {
+      "id": "JIRA-1078",
+      "source": "jira",
+      "title": "Fix pagination bug on dashboard table",
+      "description": "When navigating to page 3+, the table resets to page 1 on filter change. Reproduce steps in attached video.",
+      "status": "todo",
+      "priority": "medium",
+      "assignee": {
+        "id": "user-003",
+        "name": "Charlie Le",
+        "email": "charlie@company.com",
+        "avatar": "https://avatar.example.com/charlie"
+      },
+      "creator": {
+        "id": "user-001",
+        "name": "Alice Nguyen",
+        "email": "alice@company.com"
+      },
+      "tags": [
+        "frontend",
+        "bug",
+        "dashboard"
+      ],
+      "due_date": "2026-06-10T00:00:00Z",
+      "created_at": "2026-06-01T10:00:00Z",
+      "updated_at": "2026-06-01T10:00:00Z",
+      "url": "https://company.atlassian.net/browse/JIRA-1078",
+      "subtasks": [],
+      "attachments": [
+        {
+          "id": "att-001",
+          "name": "bug-repro.mp4",
+          "url": "https://company.atlassian.net/attachments/att-001",
+          "size_bytes": 2048000
+        }
+      ],
+      "comments_count": 2,
+      "estimate_hours": 4,
+      "logged_hours": 0
+    },
+    {
+      "id": "JIRA-1055",
+      "source": "jira",
+      "title": "Migrate database to PostgreSQL 16",
+      "description": "Upgrade from PostgreSQL 14 to 16. Includes schema migration, query optimization review, and zero-downtime deployment plan.",
+      "status": "done",
+      "priority": "high",
+      "assignee": {
+        "id": "user-005",
+        "name": "Ethan Vu",
+        "email": "ethan@company.com",
+        "avatar": "https://avatar.example.com/ethan"
+      },
+      "creator": {
+        "id": "user-006",
+        "name": "Frank Ho",
+        "email": "frank@company.com"
+      },
+      "tags": [
+        "database",
+        "infra",
+        "migration"
+      ],
+      "due_date": "2026-05-30T00:00:00Z",
+      "created_at": "2026-05-01T09:00:00Z",
+      "updated_at": "2026-05-29T16:00:00Z",
+      "url": "https://company.atlassian.net/browse/JIRA-1055",
+      "subtasks": [
+        {
+          "id": "JIRA-1056",
+          "title": "Backup current production DB",
+          "status": "done"
+        },
+        {
+          "id": "JIRA-1057",
+          "title": "Run migration on staging",
+          "status": "done"
+        },
+        {
+          "id": "JIRA-1058",
+          "title": "Deploy to production",
+          "status": "done"
+        }
+      ],
+      "attachments": [],
+      "comments_count": 11,
+      "estimate_hours": 24,
+      "logged_hours": 22
+    },
+    {
+      "id": "JIRA-1091",
+      "source": "jira",
+      "title": "Add rate limiting to public API endpoints",
+      "description": "Implement per-IP and per-token rate limiting using Redis. Limits: 100 req/min for unauthenticated, 1000 req/min for authenticated users.",
+      "status": "todo",
+      "priority": "high",
+      "assignee": {
+        "id": "user-002",
+        "name": "Bob Tran",
+        "email": "bob@company.com",
+        "avatar": "https://avatar.example.com/bob"
+      },
+      "creator": {
+        "id": "user-006",
+        "name": "Frank Ho",
+        "email": "frank@company.com"
+      },
+      "tags": [
+        "api",
+        "backend",
+        "security",
+        "redis"
+      ],
+      "due_date": "2026-06-22T00:00:00Z",
+      "created_at": "2026-06-03T08:00:00Z",
+      "updated_at": "2026-06-04T11:30:00Z",
+      "url": "https://company.atlassian.net/browse/JIRA-1091",
+      "subtasks": [
+        {
+          "id": "JIRA-1092",
+          "title": "Set up Redis rate limit middleware",
+          "status": "todo"
+        },
+        {
+          "id": "JIRA-1093",
+          "title": "Add rate limit headers to responses",
+          "status": "todo"
+        }
+      ],
+      "attachments": [],
+      "comments_count": 3,
+      "estimate_hours": 10,
+      "logged_hours": 0
+    },
+    {
+      "id": "JIRA-1067",
+      "source": "jira",
+      "title": "Improve CI/CD pipeline build time",
+      "description": "Current average build time is 18 minutes. Target is under 8 minutes. Investigate Docker layer caching, parallelise test suites, and remove redundant lint steps.",
+      "status": "in_progress",
+      "priority": "medium",
+      "assignee": {
+        "id": "user-005",
+        "name": "Ethan Vu",
+        "email": "ethan@company.com",
+        "avatar": "https://avatar.example.com/ethan"
+      },
+      "creator": {
+        "id": "user-005",
+        "name": "Ethan Vu",
+        "email": "ethan@company.com"
+      },
+      "tags": [
+        "devops",
+        "ci-cd",
+        "performance"
+      ],
+      "due_date": "2026-06-18T00:00:00Z",
+      "created_at": "2026-05-25T10:00:00Z",
+      "updated_at": "2026-06-05T09:00:00Z",
+      "url": "https://company.atlassian.net/browse/JIRA-1067",
+      "subtasks": [
+        {
+          "id": "JIRA-1068",
+          "title": "Enable Docker layer caching in GitHub Actions",
+          "status": "done"
+        },
+        {
+          "id": "JIRA-1069",
+          "title": "Split test suite into parallel jobs",
+          "status": "in_progress"
+        },
+        {
+          "id": "JIRA-1070",
+          "title": "Remove duplicate ESLint step",
+          "status": "todo"
+        }
+      ],
+      "attachments": [],
+      "comments_count": 6,
+      "estimate_hours": 12,
+      "logged_hours": 7
+    },
+    {
+      "id": "JIRA-1101",
+      "source": "jira",
+      "title": "Export reports as PDF and CSV",
+      "description": "Users need to export analytics reports in PDF and CSV formats. PDF should preserve charts; CSV should flatten data rows.",
+      "status": "todo",
+      "priority": "low",
+      "assignee": {
+        "id": "user-003",
+        "name": "Charlie Le",
+        "email": "charlie@company.com",
+        "avatar": "https://avatar.example.com/charlie"
+      },
+      "creator": {
+        "id": "user-004",
+        "name": "Diana Pham",
+        "email": "diana@company.com"
+      },
+      "tags": [
+        "frontend",
+        "export",
+        "analytics"
+      ],
+      "due_date": "2026-07-05T00:00:00Z",
+      "created_at": "2026-06-04T14:00:00Z",
+      "updated_at": "2026-06-04T14:00:00Z",
+      "url": "https://company.atlassian.net/browse/JIRA-1101",
+      "subtasks": [],
+      "attachments": [],
+      "comments_count": 0,
+      "estimate_hours": 8,
+      "logged_hours": 0
+    },
+    {
+      "id": "notion-page-abc123",
+      "source": "notion",
+      "title": "Q3 Product Roadmap Planning",
+      "description": "Define and prioritize features for Q3 2026. Align with engineering capacity and business goals. Include OKR mapping.",
+      "status": "in_progress",
+      "priority": "high",
+      "assignee": {
+        "id": "user-004",
+        "name": "Diana Pham",
+        "email": "diana@company.com",
+        "avatar": "https://avatar.example.com/diana"
+      },
+      "creator": {
+        "id": "user-004",
+        "name": "Diana Pham",
+        "email": "diana@company.com"
+      },
+      "tags": [
+        "planning",
+        "product",
+        "roadmap",
+        "q3"
+      ],
+      "due_date": "2026-06-20T00:00:00Z",
+      "created_at": "2026-05-28T09:00:00Z",
+      "updated_at": "2026-06-04T17:45:00Z",
+      "url": "https://notion.so/company/Q3-Product-Roadmap-abc123",
+      "subtasks": [
+        {
+          "id": "notion-page-abc124",
+          "title": "Collect feature requests from sales team",
+          "status": "done"
+        },
+        {
+          "id": "notion-page-abc125",
+          "title": "Capacity planning with engineering leads",
+          "status": "in_progress"
+        },
+        {
+          "id": "notion-page-abc126",
+          "title": "Draft roadmap document",
+          "status": "todo"
+        }
+      ],
+      "attachments": [],
+      "comments_count": 14,
+      "estimate_hours": null,
+      "logged_hours": null
+    },
+    {
+      "id": "notion-page-def456",
+      "source": "notion",
+      "title": "Write onboarding docs for new engineers",
+      "description": "Create comprehensive onboarding documentation covering dev environment setup, architecture overview, deployment process, and team norms.",
+      "status": "todo",
+      "priority": "low",
+      "assignee": {
+        "id": "user-005",
+        "name": "Ethan Vu",
+        "email": "ethan@company.com",
+        "avatar": "https://avatar.example.com/ethan"
+      },
+      "creator": {
+        "id": "user-002",
+        "name": "Bob Tran",
+        "email": "bob@company.com"
+      },
+      "tags": [
+        "documentation",
+        "onboarding",
+        "internal"
+      ],
+      "due_date": "2026-07-01T00:00:00Z",
+      "created_at": "2026-06-02T11:30:00Z",
+      "updated_at": "2026-06-02T11:30:00Z",
+      "url": "https://notion.so/company/Onboarding-Docs-def456",
+      "subtasks": [],
+      "attachments": [],
+      "comments_count": 1,
+      "estimate_hours": null,
+      "logged_hours": null
+    },
+    {
+      "id": "notion-page-ghi789",
+      "source": "notion",
+      "title": "Design system component audit",
+      "description": "Audit all existing UI components against the new design system guidelines. Flag inconsistencies and create migration tickets.",
+      "status": "in_progress",
+      "priority": "medium",
+      "assignee": {
+        "id": "user-003",
+        "name": "Charlie Le",
+        "email": "charlie@company.com",
+        "avatar": "https://avatar.example.com/charlie"
+      },
+      "creator": {
+        "id": "user-003",
+        "name": "Charlie Le",
+        "email": "charlie@company.com"
+      },
+      "tags": [
+        "design-system",
+        "frontend",
+        "audit"
+      ],
+      "due_date": "2026-06-25T00:00:00Z",
+      "created_at": "2026-05-15T13:00:00Z",
+      "updated_at": "2026-06-05T10:00:00Z",
+      "url": "https://notion.so/company/Design-System-Audit-ghi789",
+      "subtasks": [
+        {
+          "id": "notion-page-ghi790",
+          "title": "Audit Button components",
+          "status": "done"
+        },
+        {
+          "id": "notion-page-ghi791",
+          "title": "Audit Form components",
+          "status": "in_progress"
+        },
+        {
+          "id": "notion-page-ghi792",
+          "title": "Audit Modal components",
+          "status": "todo"
+        },
+        {
+          "id": "notion-page-ghi793",
+          "title": "Audit Navigation components",
+          "status": "todo"
+        }
+      ],
+      "attachments": [
+        {
+          "id": "fig-001",
+          "name": "Design System v2 Figma",
+          "url": "https://figma.com/file/fig-001",
+          "size_bytes": null
+        }
+      ],
+      "comments_count": 5,
+      "estimate_hours": null,
+      "logged_hours": null
+    },
+    {
+      "id": "notion-page-jkl012",
+      "source": "notion",
+      "title": "Competitor analysis — June 2026",
+      "description": "Analyse top 5 competitors: feature gaps, pricing changes, recent product announcements. Summarise findings for leadership review.",
+      "status": "todo",
+      "priority": "medium",
+      "assignee": {
+        "id": "user-004",
+        "name": "Diana Pham",
+        "email": "diana@company.com",
+        "avatar": "https://avatar.example.com/diana"
+      },
+      "creator": {
+        "id": "user-006",
+        "name": "Frank Ho",
+        "email": "frank@company.com"
+      },
+      "tags": [
+        "research",
+        "product",
+        "strategy"
+      ],
+      "due_date": "2026-06-30T00:00:00Z",
+      "created_at": "2026-06-01T09:00:00Z",
+      "updated_at": "2026-06-01T09:00:00Z",
+      "url": "https://notion.so/company/Competitor-Analysis-jkl012",
+      "subtasks": [
+        {
+          "id": "notion-page-jkl013",
+          "title": "Research competitor A",
+          "status": "todo"
+        },
+        {
+          "id": "notion-page-jkl014",
+          "title": "Research competitor B",
+          "status": "todo"
+        },
+        {
+          "id": "notion-page-jkl015",
+          "title": "Write summary report",
+          "status": "todo"
+        }
+      ],
+      "attachments": [],
+      "comments_count": 0,
+      "estimate_hours": null,
+      "logged_hours": null
+    },
+    {
+      "id": "notion-page-mno345",
+      "source": "notion",
+      "title": "Post-mortem: API outage on 2026-05-18",
+      "description": "Document root cause, timeline, and action items following the 47-minute API outage caused by a misconfigured load balancer health check.",
+      "status": "done",
+      "priority": "high",
+      "assignee": {
+        "id": "user-002",
+        "name": "Bob Tran",
+        "email": "bob@company.com",
+        "avatar": "https://avatar.example.com/bob"
+      },
+      "creator": {
+        "id": "user-002",
+        "name": "Bob Tran",
+        "email": "bob@company.com"
+      },
+      "tags": [
+        "post-mortem",
+        "incident",
+        "infra"
+      ],
+      "due_date": "2026-05-22T00:00:00Z",
+      "created_at": "2026-05-18T20:00:00Z",
+      "updated_at": "2026-05-22T15:30:00Z",
+      "url": "https://notion.so/company/Post-Mortem-mno345",
+      "subtasks": [
+        {
+          "id": "notion-page-mno346",
+          "title": "Write timeline section",
+          "status": "done"
+        },
+        {
+          "id": "notion-page-mno347",
+          "title": "Document root cause analysis",
+          "status": "done"
+        },
+        {
+          "id": "notion-page-mno348",
+          "title": "List action items with owners",
+          "status": "done"
+        }
+      ],
+      "attachments": [],
+      "comments_count": 9,
+      "estimate_hours": null,
+      "logged_hours": null
+    },
+    {
+      "id": "notion-page-pqr678",
+      "source": "notion",
+      "title": "Define SLOs for core API endpoints",
+      "description": "Establish Service Level Objectives for availability (99.9%), latency (p99 < 300ms), and error rate (< 0.1%) for all public-facing endpoints.",
+      "status": "in_progress",
+      "priority": "high",
+      "assignee": {
+        "id": "user-006",
+        "name": "Frank Ho",
+        "email": "frank@company.com",
+        "avatar": "https://avatar.example.com/frank"
+      },
+      "creator": {
+        "id": "user-006",
+        "name": "Frank Ho",
+        "email": "frank@company.com"
+      },
+      "tags": [
+        "slo",
+        "reliability",
+        "infra",
+        "planning"
+      ],
+      "due_date": "2026-06-12T00:00:00Z",
+      "created_at": "2026-05-30T11:00:00Z",
+      "updated_at": "2026-06-04T09:00:00Z",
+      "url": "https://notion.so/company/SLO-Definitions-pqr678",
+      "subtasks": [
+        {
+          "id": "notion-page-pqr679",
+          "title": "Identify critical endpoints",
+          "status": "done"
+        },
+        {
+          "id": "notion-page-pqr680",
+          "title": "Draft SLO targets",
+          "status": "in_progress"
+        },
+        {
+          "id": "notion-page-pqr681",
+          "title": "Get sign-off from engineering leads",
+          "status": "todo"
+        }
+      ],
+      "attachments": [],
+      "comments_count": 4,
+      "estimate_hours": null,
+      "logged_hours": null
+    },
+    {
+      "id": "gcal-event-xyz789",
+      "source": "google_calendar",
+      "title": "Sprint Review & Retrospective",
+      "description": "Bi-weekly sprint ceremony. Review completed stories, demo new features, and run retrospective for Sprint 22.",
+      "status": "scheduled",
+      "priority": "medium",
+      "assignee": {
+        "id": "user-002",
+        "name": "Bob Tran",
+        "email": "bob@company.com",
+        "avatar": "https://avatar.example.com/bob"
+      },
+      "creator": {
+        "id": "user-002",
+        "name": "Bob Tran",
+        "email": "bob@company.com"
+      },
+      "tags": [
+        "meeting",
+        "sprint",
+        "ceremony"
+      ],
+      "due_date": "2026-06-06T15:30:00Z",
+      "created_at": "2026-05-23T08:00:00Z",
+      "updated_at": "2026-06-04T09:10:00Z",
+      "url": "https://calendar.google.com/event?eid=xyz789",
+      "subtasks": [],
+      "attachments": [
+        {
+          "id": "gdoc-001",
+          "name": "Sprint 22 Review Agenda.gdoc",
+          "url": "https://docs.google.com/document/d/gdoc-001",
+          "size_bytes": null
+        }
+      ],
+      "comments_count": 0,
+      "estimate_hours": 1.5,
+      "logged_hours": null,
+      "event_metadata": {
+        "start": "2026-06-06T14:00:00Z",
+        "end": "2026-06-06T15:30:00Z",
+        "location": "Google Meet",
+        "meet_link": "https://meet.google.com/abc-defg-hij",
+        "attendees": [
+          {
+            "email": "alice@company.com",
+            "rsvp": "accepted"
+          },
+          {
+            "email": "bob@company.com",
+            "rsvp": "accepted"
+          },
+          {
+            "email": "charlie@company.com",
+            "rsvp": "accepted"
+          },
+          {
+            "email": "diana@company.com",
+            "rsvp": "tentative"
+          },
+          {
+            "email": "ethan@company.com",
+            "rsvp": "declined"
+          }
+        ],
+        "recurrence": "RRULE:FREQ=BIWEEKLY;BYDAY=FR"
+      }
+    },
+    {
+      "id": "gcal-event-uvw321",
+      "source": "google_calendar",
+      "title": "1:1 with Engineering Manager",
+      "description": "Weekly check-in to discuss blockers, career goals, and project status.",
+      "status": "scheduled",
+      "priority": "medium",
+      "assignee": {
+        "id": "user-001",
+        "name": "Alice Nguyen",
+        "email": "alice@company.com",
+        "avatar": "https://avatar.example.com/alice"
+      },
+      "creator": {
+        "id": "user-006",
+        "name": "Frank Ho",
+        "email": "frank@company.com"
+      },
+      "tags": [
+        "meeting",
+        "1on1",
+        "recurring"
+      ],
+      "due_date": "2026-06-09T10:00:00Z",
+      "created_at": "2026-01-10T07:00:00Z",
+      "updated_at": "2026-05-30T08:00:00Z",
+      "url": "https://calendar.google.com/event?eid=uvw321",
+      "subtasks": [],
+      "attachments": [],
+      "comments_count": 0,
+      "estimate_hours": 0.5,
+      "logged_hours": null,
+      "event_metadata": {
+        "start": "2026-06-09T09:30:00Z",
+        "end": "2026-06-09T10:00:00Z",
+        "location": "Google Meet",
+        "meet_link": "https://meet.google.com/xyz-uvwx-rst",
+        "attendees": [
+          {
+            "email": "alice@company.com",
+            "rsvp": "accepted"
+          },
+          {
+            "email": "frank@company.com",
+            "rsvp": "accepted"
+          }
+        ],
+        "recurrence": "RRULE:FREQ=WEEKLY;BYDAY=MO"
+      }
+    },
+    {
+      "id": "gcal-event-rst654",
+      "source": "google_calendar",
+      "title": "Q2 All-Hands Meeting",
+      "description": "Company-wide all-hands for Q2 wrap-up. Leadership will present key results, product demos, and announce Q3 priorities.",
+      "status": "scheduled",
+      "priority": "high",
+      "assignee": {
+        "id": "user-006",
+        "name": "Frank Ho",
+        "email": "frank@company.com",
+        "avatar": "https://avatar.example.com/frank"
+      },
+      "creator": {
+        "id": "user-006",
+        "name": "Frank Ho",
+        "email": "frank@company.com"
+      },
+      "tags": [
+        "meeting",
+        "all-hands",
+        "company"
+      ],
+      "due_date": "2026-06-11T18:00:00Z",
+      "created_at": "2026-05-20T12:00:00Z",
+      "updated_at": "2026-06-03T10:00:00Z",
+      "url": "https://calendar.google.com/event?eid=rst654",
+      "subtasks": [],
+      "attachments": [
+        {
+          "id": "gslide-001",
+          "name": "Q2 All-Hands Deck.gslides",
+          "url": "https://docs.google.com/presentation/d/gslide-001",
+          "size_bytes": null
+        }
+      ],
+      "comments_count": 0,
+      "estimate_hours": 1,
+      "logged_hours": null,
+      "event_metadata": {
+        "start": "2026-06-11T17:00:00Z",
+        "end": "2026-06-11T18:00:00Z",
+        "location": "Main Conference Room + Google Meet",
+        "meet_link": "https://meet.google.com/qrs-tuvw-xyz",
+        "attendees": [
+          {
+            "email": "alice@company.com",
+            "rsvp": "accepted"
+          },
+          {
+            "email": "bob@company.com",
+            "rsvp": "accepted"
+          },
+          {
+            "email": "charlie@company.com",
+            "rsvp": "accepted"
+          },
+          {
+            "email": "diana@company.com",
+            "rsvp": "accepted"
+          },
+          {
+            "email": "ethan@company.com",
+            "rsvp": "accepted"
+          },
+          {
+            "email": "frank@company.com",
+            "rsvp": "accepted"
+          }
+        ],
+        "recurrence": null
+      }
+    },
+    {
+      "id": "gcal-event-opq987",
+      "source": "google_calendar",
+      "title": "Architecture Review: Notification Service",
+      "description": "Review proposed architecture for the new notification service before implementation begins. Covers event queue design, delivery guarantees, and retry strategy.",
+      "status": "scheduled",
+      "priority": "high",
+      "assignee": {
+        "id": "user-002",
+        "name": "Bob Tran",
+        "email": "bob@company.com",
+        "avatar": "https://avatar.example.com/bob"
+      },
+      "creator": {
+        "id": "user-002",
+        "name": "Bob Tran",
+        "email": "bob@company.com"
+      },
+      "tags": [
+        "meeting",
+        "architecture",
+        "backend"
+      ],
+      "due_date": "2026-06-08T12:00:00Z",
+      "created_at": "2026-06-02T09:00:00Z",
+      "updated_at": "2026-06-04T14:00:00Z",
+      "url": "https://calendar.google.com/event?eid=opq987",
+      "subtasks": [],
+      "attachments": [
+        {
+          "id": "gdoc-002",
+          "name": "Notification Service RFC.gdoc",
+          "url": "https://docs.google.com/document/d/gdoc-002",
+          "size_bytes": null
+        }
+      ],
+      "comments_count": 0,
+      "estimate_hours": 1,
+      "logged_hours": null,
+      "event_metadata": {
+        "start": "2026-06-08T11:00:00Z",
+        "end": "2026-06-08T12:00:00Z",
+        "location": "Google Meet",
+        "meet_link": "https://meet.google.com/lmn-opqr-stu",
+        "attendees": [
+          {
+            "email": "alice@company.com",
+            "rsvp": "accepted"
+          },
+          {
+            "email": "bob@company.com",
+            "rsvp": "accepted"
+          },
+          {
+            "email": "ethan@company.com",
+            "rsvp": "accepted"
+          },
+          {
+            "email": "frank@company.com",
+            "rsvp": "tentative"
+          }
+        ],
+        "recurrence": null
+      }
+    },
+    {
+      "id": "gcal-event-lmn246",
+      "source": "google_calendar",
+      "title": "User Interview — Enterprise Pilot Customer",
+      "description": "60-minute discovery call with the product team at Acme Corp to gather feedback on the enterprise dashboard and identify friction points.",
+      "status": "scheduled",
+      "priority": "high",
+      "assignee": {
+        "id": "user-004",
+        "name": "Diana Pham",
+        "email": "diana@company.com",
+        "avatar": "https://avatar.example.com/diana"
+      },
+      "creator": {
+        "id": "user-004",
+        "name": "Diana Pham",
+        "email": "diana@company.com"
+      },
+      "tags": [
+        "meeting",
+        "customer",
+        "research",
+        "enterprise"
+      ],
+      "due_date": "2026-06-10T16:00:00Z",
+      "created_at": "2026-06-03T14:00:00Z",
+      "updated_at": "2026-06-03T14:00:00Z",
+      "url": "https://calendar.google.com/event?eid=lmn246",
+      "subtasks": [],
+      "attachments": [],
+      "comments_count": 0,
+      "estimate_hours": 1,
+      "logged_hours": null,
+      "event_metadata": {
+        "start": "2026-06-10T15:00:00Z",
+        "end": "2026-06-10T16:00:00Z",
+        "location": "Zoom",
+        "meet_link": "https://zoom.us/j/99988877766",
+        "attendees": [
+          {
+            "email": "diana@company.com",
+            "rsvp": "accepted"
+          },
+          {
+            "email": "contact@acmecorp.com",
+            "rsvp": "accepted"
+          }
+        ],
+        "recurrence": null
+      }
+    },
+    {
+      "id": "gcal-event-ijk135",
+      "source": "google_calendar",
+      "title": "Security Vulnerability Review",
+      "description": "Monthly security review session. Go through latest dependency audit, open CVEs, and review penetration test findings from last cycle.",
+      "status": "scheduled",
+      "priority": "critical",
+      "assignee": {
+        "id": "user-001",
+        "name": "Alice Nguyen",
+        "email": "alice@company.com",
+        "avatar": "https://avatar.example.com/alice"
+      },
+      "creator": {
+        "id": "user-001",
+        "name": "Alice Nguyen",
+        "email": "alice@company.com"
+      },
+      "tags": [
+        "meeting",
+        "security",
+        "monthly",
+        "compliance"
+      ],
+      "due_date": "2026-06-13T11:00:00Z",
+      "created_at": "2026-01-15T09:00:00Z",
+      "updated_at": "2026-06-01T08:00:00Z",
+      "url": "https://calendar.google.com/event?eid=ijk135",
+      "subtasks": [],
+      "attachments": [
+        {
+          "id": "gdoc-003",
+          "name": "June Security Audit Report.gdoc",
+          "url": "https://docs.google.com/document/d/gdoc-003",
+          "size_bytes": null
+        }
+      ],
+      "comments_count": 0,
+      "estimate_hours": 1.5,
+      "logged_hours": null,
+      "event_metadata": {
+        "start": "2026-06-13T10:00:00Z",
+        "end": "2026-06-13T11:30:00Z",
+        "location": "Google Meet",
+        "meet_link": "https://meet.google.com/hij-klmn-opq",
+        "attendees": [
+          {
+            "email": "alice@company.com",
+            "rsvp": "accepted"
+          },
+          {
+            "email": "bob@company.com",
+            "rsvp": "accepted"
+          },
+          {
+            "email": "frank@company.com",
+            "rsvp": "accepted"
+          }
+        ],
+        "recurrence": "RRULE:FREQ=MONTHLY;BYDAY=2FR"
+      }
+    }
+  ],
+  "meta": {
+    "total": 22,
+    "sources": [
+      "jira",
+      "notion",
+      "google_calendar"
+    ],
+    "source_counts": {
+      "jira": 7,
+      "notion": 6,
+      "google_calendar": 7
+    },
+    "status_values": [
+      "todo",
+      "in_progress",
+      "done",
+      "scheduled"
+    ],
+    "priority_values": [
+      "low",
+      "medium",
+      "high",
+      "critical"
+    ],
+    "generated_at": "2026-06-05T00:00:00Z"
+  }
+}
