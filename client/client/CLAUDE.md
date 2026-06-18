@@ -20,7 +20,9 @@ npm run preview    # Preview production build
 - ESLint configured with `typescript-eslint`, `eslint-plugin-react-hooks`,
   `eslint-plugin-react-refresh`
 
-## Status
+## Components
 
-Still the default Vite/React scaffold (`App.tsx` is the "Get started" demo).
-The chat UI and API client (`lib/api.ts`) have not been built yet.
+- `App.tsx` — root layout: `<Sidebar />` left + `<ChatPanel />` main
+- `ChatPanel.tsx` — chat thread; sends `POST /api/chat`, renders text messages, task card lists, and schedule blocks
+- `Sidebar.tsx` — model switcher; calls `GET`/`POST /api/provider` to toggle Ollama ↔ Gemini
+- `lib/api.ts` — typed fetch wrappers (`sendChat`, `getProvider`, `setProvider`) and shared types (`Task`, `Schedule`, `ChatResponse`, `Provider`)

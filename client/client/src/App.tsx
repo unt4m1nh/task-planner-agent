@@ -1,18 +1,17 @@
+import { useState } from 'react'
+import Sidebar from './Sidebar'
 import ChatPanel from './ChatPanel'
 import './App.css'
+import type { Schedule } from './lib/api'
 
 function App() {
+  const [schedule, setSchedule] = useState<Schedule | null>(null)
+
   return (
     <div className="app">
-      <aside className="sidebar">
-        <div className="sidebar-brand">
-          <span className="sidebar-mark">✦</span>
-          <span className="sidebar-title">Task Agent</span>
-        </div>
-      </aside>
-
+      <Sidebar schedule={schedule} />
       <div className="main">
-        <ChatPanel />
+        <ChatPanel onSchedule={setSchedule} />
       </div>
     </div>
   )

@@ -1,7 +1,6 @@
 const BASE_URL = 'http://localhost:3000'
-const API_URL = `${BASE_URL}/api/chat`
 
-export type TaskSource = 'jira' | 'notion' | 'google_calendar' | 'manual'
+export type TaskSource = 'jira' | 'notion' | 'google_calendar' | 'manual' | 'wire'
 export type TaskStatus = 'todo' | 'in_progress' | 'done' | 'scheduled'
 export type TaskPriority = 'low' | 'medium' | 'high' | 'critical'
 
@@ -15,6 +14,7 @@ export interface Task {
   tags: string[]
   due_date: string | null
   estimate_hours: number | null
+  logged_hours?: number | null
   subtasks: { id: string; title: string; status: string }[]
 }
 
@@ -24,7 +24,9 @@ export interface ScheduleBlock {
   type: 'task' | 'break'
   task?: Task
   partial?: boolean
+  label?: string
 }
+
 
 export interface Schedule {
   date: string
@@ -34,13 +36,24 @@ export interface Schedule {
   unplaced: Task[]
 }
 
+export interface AwaitingInput {
+  kind: 'clarify' | 'approve'
+  question?: string
+  summary?: string
+  missingSlot?: string
+  options?: string[]
+  schedule?: Schedule
+}
+
 export interface ChatResponse {
   ok: boolean
-  message: string
-  intent: { intent: string; clarification?: string; [key: string]: unknown }
-  response: string
+  threadId: string
+  message?: string
+  intent?: { intent: string; [key: string]: unknown }
+  response?: string
   tasks?: Task[]
   schedule?: Schedule
+  awaitingInput?: AwaitingInput
 }
 
 export type Provider = 'ollama' | 'gemini'
@@ -59,18 +72,31 @@ export async function setProvider(provider: Provider): Promise<void> {
   })
 }
 
-export async function sendChat(message: string): Promise<ChatResponse> {
-  const res = await fetch(API_URL, {
+export async function sendChat(message: string, threadId?: string): Promise<ChatResponse> {
+  const res = await fetch(`${BASE_URL}/api/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message }),
+    body: JSON.stringify({
+      messages: [{ role: 'user', content: message }],
+      ...(threadId ? { threadId } : {}),
+    }),
   })
-
   const data = await res.json()
-
   if (!res.ok || !data.ok) {
     throw new Error(data?.error ?? `Request failed with status ${res.status}`)
   }
+  return data as ChatResponse
+}
 
+export async function resumeChat(resume: string, threadId: string): Promise<ChatResponse> {
+  const res = await fetch(`${BASE_URL}/api/chat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ resume, threadId }),
+  })
+  const data = await res.json()
+  if (!res.ok || !data.ok) {
+    throw new Error(data?.error ?? `Request failed with status ${res.status}`)
+  }
   return data as ChatResponse
 }

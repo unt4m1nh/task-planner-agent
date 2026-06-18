@@ -3,7 +3,7 @@ const { ollamaSchema } = require('./schema')
 
 const MAX_RETRIES = 2
 
-const VALID_INTENTS = ['list', 'read', 'add', 'edit', 'reorder', 'suggest', 'plan', 'unknown']
+const VALID_INTENTS = ['list', 'read', 'add', 'edit', 'delete', 'reorder', 'suggest', 'plan', 'unknown']
 
 const SYSTEM = `You are a task manager assistant. Classify the user message into one intent and extract slots.
 Use the task context above to resolve task references (e.g. "that task", "the auth ticket", "JIRA-1042").
@@ -14,6 +14,7 @@ Intents:
 - add     : create a new task (needs title)
 - edit    : change an existing task — direct field replacements (fields object) and/or
             appending to a field like tags, subtasks, or title (append: { field, value }) (needs id)
+- delete  : permanently remove a task (needs id)
 - reorder : move a task to top, bottom, before, or after another (needs id, to)
 - suggest : recommend what to work on next — extract availableMinutes and/or mood from the message,
             do not pick tasks yourself
@@ -26,6 +27,7 @@ Examples:
 - "show in progress tasks"                 → {"intent":"list","status":"in_progress"}
 - "show high priority tasks"               → {"intent":"list","priority":"high"}
 - "show jira tasks"                        → {"intent":"list","source":"jira"}
+- "show wire tasks"                        → {"intent":"list","source":"wire"}
 - "tasks tagged frontend"                  → {"intent":"list","tags":["frontend"]}
 - "todo jira tasks tagged backend"         → {"intent":"list","status":"todo","source":"jira","tags":["backend"]}
 - "find tasks about login"                 → {"intent":"list","query":"login"}
@@ -44,6 +46,21 @@ IMPORTANT: Always extract filter slots when the user specifies status, priority,
 Never omit a filter the user mentioned. Only omit "query" for generic words like "tasks", "all", "my".
 Use "tags" when the user says "tagged X" or "with tag X". For general topic keywords, prefer "query".
 For suggest: mood must be one of "tired", "energetic", "neutral". Preference must be one of "quick", "important", "due_soon".`
+
+// ─── JSON extraction ─────────────────────────────────────────────────────────
+// Models without constrained decoding (e.g. Gemma via Google API) may wrap JSON
+// in markdown fences or add preamble text. Extract the first {...} object.
+
+function extractJSON(raw) {
+  if (!raw) return null
+  // Strip markdown code fences
+  let s = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim()
+  // Find outermost { ... }
+  const start = s.indexOf('{')
+  const end = s.lastIndexOf('}')
+  if (start === -1 || end === -1 || end < start) return null
+  return s.slice(start, end + 1)
+}
 
 // ─── validation ───────────────────────────────────────────────────────────────
 
@@ -111,7 +128,7 @@ function buildPrompt(userMessage, previousError) {
     lines.push('')
   }
 
-  lines.push(`User: "${userMessage}"`, '', 'Output JSON:')
+  lines.push(`User: "${userMessage}"`, '', 'Output a single JSON object only. No markdown, no explanation, no code fences:')
 
   return lines.join('\n')
 }
@@ -124,7 +141,6 @@ async function classify(userMessage) {
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     // 1. call model
     const prompt = buildPrompt(userMessage, lastError)
-    console.log(`[classify] attempt ${attempt} — prompt:\n${prompt}\n--- end prompt ---`)
     let raw
     try {
       raw = await generate(prompt, ollamaSchema)
@@ -134,10 +150,13 @@ async function classify(userMessage) {
       continue
     }
 
-    // 2. parse JSON
+    // 2. parse JSON — strip markdown fences and extract first {...} object
     let parsed
+    console.log(`\n\n[classify]: LLM response raw: ${raw}`)
     try {
-      parsed = JSON.parse(raw)
+      const cleaned = extractJSON(raw)
+      if (!cleaned) throw new Error('no JSON object found')
+      parsed = JSON.parse(cleaned)
     } catch {
       lastError = `JSON parse failed on: ${raw?.slice(0, 120)}`
       console.error(`[classify] attempt ${attempt} — ${lastError}`)
@@ -165,4 +184,4 @@ async function classify(userMessage) {
   }
 }
 
-module.exports = { classify, validate }
+module.exports = { classify, validate, SYSTEM }

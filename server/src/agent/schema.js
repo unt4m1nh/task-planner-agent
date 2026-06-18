@@ -8,7 +8,7 @@ const listSchema = {
     intent: { type: 'string', const: 'list' },
     status: { type: 'string', enum: ['todo', 'in_progress', 'done', 'scheduled'] },
     priority: { type: 'string', enum: ['high', 'medium', 'low', 'critical'] },
-    source: { type: 'string', enum: ['jira', 'notion', 'google_calendar', 'manual'] },
+    source: { type: 'string', enum: ['jira', 'notion', 'google_calendar', 'manual', 'wire'] },
     tags: { type: 'array', items: { type: 'string' }, uniqueItems: true },
     query: {
       type: 'string',
@@ -45,7 +45,7 @@ const addSchema = {
     },
     source: {
       type: 'string',
-      enum: ['jira', 'notion', 'google_calendar', 'manual'],
+      enum: ['jira', 'notion', 'google_calendar', 'manual', 'wire'],
       default: 'manual',
     },
   },
@@ -199,14 +199,14 @@ const ollamaSchema = {
   type: 'object',
   required: ['intent'],
   properties: {
-    intent: { type: 'string', enum: ['list', 'read', 'add', 'edit', 'reorder', 'suggest', 'plan', 'unknown'] },
+    intent: { type: 'string', enum: ['list', 'read', 'add', 'edit', 'delete', 'reorder', 'suggest', 'plan', 'unknown'] },
     id: { type: 'string' },
     title: { type: 'string' },
     description: { type: 'string' },
     due: { type: 'string' },
     priority: { type: 'string', enum: ['high', 'medium', 'low', 'critical'] },
     status: { type: 'string', enum: ['todo', 'in_progress', 'done', 'scheduled'] },
-    source: { type: 'string', enum: ['jira', 'notion', 'google_calendar', 'manual'] },
+    source: { type: 'string', enum: ['jira', 'notion', 'google_calendar', 'manual', 'wire'] },
     tags: { type: 'array', items: { type: 'string' } },
     query: { type: 'string' },
     fields: {

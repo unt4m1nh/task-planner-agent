@@ -29,6 +29,7 @@ function scoreTask(task, { mood, preference }) {
   let drop = false
 
   if (task.isDueToday) score += 25
+  if (task.isOverdue)  score += 35
 
   if (preference === 'quick') {
     if (task.remainMin === null)       { drop = true }
@@ -52,26 +53,24 @@ function scoreTask(task, { mood, preference }) {
   return { score, drop }
 }
 
-function formatReply({ overdue, suggested, today }) {
+function formatReply({ suggested, overdue, today }) {
+  if (!suggested.length && !overdue.length) return 'Nothing left to do today 🎉'
+
   const lines = []
 
-  if (overdue.length) {
-    lines.push(`⚠️ ${overdue.length} task(s) overdue — handle these first:`)
-    for (const t of overdue) {
-      lines.push(`• ${t.title} (${daysLate(t.dueDate, today)} days late)`)
-    }
-    if (suggested.length) lines.push('\nOtherwise, work on:')
-  } else if (suggested.length) {
+  if (suggested.length) {
     lines.push('Work on:')
+    for (const { task } of suggested) {
+      const time = task.remainMin != null ? ` (~${Math.round(task.remainMin)}m,` : ' ('
+      lines.push(`• ${task.title}${time} ${task.priority})`)
+    }
   }
 
-  for (const { task } of suggested) {
-    const time = task.remainMin != null ? ` (~${Math.round(task.remainMin)}m,` : ' ('
-    lines.push(`• ${task.title}${time} ${task.priority})`)
+  if (overdue.length) {
+    const items = overdue.map(t => `${t.title} (${daysLate(t.dueDate, today)}d late)`).join(', ')
+    lines.push(`\n⚠️ Reminder: ${overdue.length} task(s) overdue — ${items}`)
   }
 
-  if (!overdue.length && !suggested.length) return 'Nothing left to do today 🎉'
-  if (!suggested.length && overdue.length)  return lines.join('\n')
   return lines.join('\n')
 }
 
@@ -79,10 +78,7 @@ function suggestTasks({ mood, preference, availableMinutes }) {
   const today = getToday()
   const all = store.readTasks().map(t => prepare(t, today)).filter(t => !t.isDone)
 
-  const overdue   = all.filter(t => t.isOverdue).sort((a, b) => a.dueDate < b.dueDate ? 1 : -1)
-  const remaining = all.filter(t => !t.isOverdue)
-
-  const scored = remaining
+  const scored = all
     .map((task, storeIdx) => {
       const { score, drop } = scoreTask(task, { mood, preference })
       return { task, score, storeIdx, drop }
@@ -92,8 +88,9 @@ function suggestTasks({ mood, preference, availableMinutes }) {
     .sort((a, b) => b.score !== a.score ? b.score - a.score : a.storeIdx - b.storeIdx)
 
   const suggested = scored.slice(0, 3)
+  const overdue = all.filter(t => t.isOverdue)
 
-  return formatReply({ overdue, suggested, today })
+  return formatReply({ suggested, overdue, today })
 }
 
 module.exports = { suggestTasks, prepare, scoreTask }

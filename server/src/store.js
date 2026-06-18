@@ -65,6 +65,18 @@ function appendToTask(id, field, value) {
   return task
 }
 
+function upsertTasks(rows) {
+  if (!rows || !rows.length) return 0
+  const data = load()
+  for (const row of rows) {
+    const existing = data.tasks.find(t => t.id === row.id)
+    if (existing) Object.assign(existing, row)
+    else data.tasks.push(row)
+  }
+  save(data)
+  return rows.length
+}
+
 function updateTask(id, fields) {
   const data = load()
   const task = data.tasks.find(t => t.id === id)
@@ -97,4 +109,13 @@ function reorderTask(id, to, refId) {
   return data.tasks
 }
 
-module.exports = { readTasks, writeTask, filterTasks, appendToTask, updateTask, reorderTask }
+function deleteTask(id) {
+  const data = load()
+  const idx = data.tasks.findIndex(t => t.id === id)
+  if (idx === -1) return null
+  const [task] = data.tasks.splice(idx, 1)
+  save(data)
+  return task
+}
+
+module.exports = { readTasks, writeTask, filterTasks, appendToTask, updateTask, reorderTask, upsertTasks, deleteTask }

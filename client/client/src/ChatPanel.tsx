@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
-import { sendChat, getProvider, setProvider, type Provider, type Task, type TaskStatus, type Schedule } from './lib/api'
+import { sendChat, resumeChat, type Task, type TaskStatus, type Schedule, type AwaitingInput } from './lib/api'
 
 interface Message {
   role: 'user' | 'agent' | 'error'
   text: string
   tasks?: Task[]
   schedule?: Schedule
+  awaitingInput?: AwaitingInput
 }
 
 function SendIcon() {
@@ -66,6 +67,15 @@ const SOURCE_LOGOS: Record<string, { label: string; logo: React.ReactNode }> = {
       </svg>
     ),
   },
+  wire: {
+    label: 'WIRE',
+    logo: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="#6366f1" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="9" />
+        <path d="M8 12h8M12 8v8" />
+      </svg>
+    ),
+  },
 }
 
 const STATUS_LABELS: Record<TaskStatus, string> = {
@@ -75,22 +85,50 @@ const STATUS_LABELS: Record<TaskStatus, string> = {
   scheduled: 'Scheduled',
 }
 
-function TaskCard({ task }: { task: Task }) {
+function dueMeta(dueDate: string | null, today: string) {
+  if (!dueDate) return null
+  const d = dueDate.slice(0, 10)
+  if (d < today) {
+    const days = Math.round((Date.parse(today) - Date.parse(d)) / 86400000)
+    return { text: `${days}d overdue`, cls: 'due-overdue' }
+  }
+  if (d === today) return { text: 'Due today', cls: 'due-today' }
+  const days = Math.round((Date.parse(d) - Date.parse(today)) / 86400000)
+  if (days === 1) return { text: 'Tomorrow', cls: 'due-soon' }
+  if (days <= 7) return { text: `In ${days}d`, cls: 'due-soon' }
+  return { text: d.slice(5).replace('-', '/'), cls: 'due-later' }
+}
+
+function sortByTime(tasks: Task[]): Task[] {
+  return [...tasks].sort((a, b) => {
+    const ad = a.due_date?.slice(0, 10)
+    const bd = b.due_date?.slice(0, 10)
+    if (!ad && !bd) return 0
+    if (!ad) return 1
+    if (!bd) return -1
+    return ad < bd ? -1 : ad > bd ? 1 : 0
+  })
+}
+
+function TaskCard({ task, today }: { task: Task; today: string }) {
   const source = SOURCE_LOGOS[task.source]
+  const due = dueMeta(task.due_date, today)
   return (
-    <div className="task-card">
-      <span className="source-logo" title={source?.label}>{source?.logo}</span>
-      <div className="task-card-body">
-        <div className="task-card-top">
-          <span className="task-card-title">{task.title}</span>
-          <span className="task-card-id">{task.id}</span>
-        </div>
-        <div className="task-card-meta">
-          <span className={`chip status-${task.status}`}>{STATUS_LABELS[task.status] ?? task.status}</span>
-          <span className={`chip priority-${task.priority}`}>{task.priority}</span>
-          {task.due_date && <span className="task-card-due">due {task.due_date.slice(0, 10)}</span>}
-          {task.tags.map(t => <span key={t} className="chip tag">#{t}</span>)}
-        </div>
+    <div className={`task-card priority-bar-${task.priority}`}>
+      <div className="task-card-header">
+        <span className="source-logo" title={source?.label}>{source?.logo}</span>
+        <span className="task-card-id">{task.id}</span>
+      </div>
+      <span className="task-card-title">{task.title}</span>
+      <div className="task-card-meta">
+        <span className={`chip status-${task.status}`}>{STATUS_LABELS[task.status] ?? task.status}</span>
+        <span className={`chip priority-${task.priority}`}>{task.priority}</span>
+      </div>
+      <div className="task-card-footer">
+        {due && <span className={`task-due-badge ${due.cls}`}>{due.text}</span>}
+        <span className="task-card-tags">
+          {task.tags.slice(0, 2).map(t => <span key={t} className="chip tag">#{t}</span>)}
+        </span>
       </div>
     </div>
   )
@@ -98,89 +136,131 @@ function TaskCard({ task }: { task: Task }) {
 
 function TaskList({ tasks }: { tasks: Task[] }) {
   const [tab, setTab] = useState<'all' | TaskStatus>('all')
-
-  const statuses = (Object.keys(STATUS_LABELS) as TaskStatus[]).filter(
-    s => tasks.some(t => t.status === s)
-  )
-  const filtered = tab === 'all' ? tasks : tasks.filter(t => t.status === tab)
-
+  const today = new Date().toISOString().slice(0, 10)
+  const statuses = (Object.keys(STATUS_LABELS) as TaskStatus[]).filter(s => tasks.some(t => t.status === s))
+  const base = tab === 'all' ? tasks : tasks.filter(t => t.status === tab)
+  const sorted = sortByTime(base)
   return (
     <div className="task-list">
-      {tasks.length > 1 && statuses.length > 1 && (
-        <div className="task-tabs">
-          <button className={`task-tab${tab === 'all' ? ' active' : ''}`} onClick={() => setTab('all')}>
-            All <span className="tab-count">{tasks.length}</span>
-          </button>
-          {statuses.map(s => (
-            <button key={s} className={`task-tab${tab === s ? ' active' : ''}`} onClick={() => setTab(s)}>
-              {STATUS_LABELS[s]} <span className="tab-count">{tasks.filter(t => t.status === s).length}</span>
+      <div className="task-list-header">
+        <span className="task-list-count">{tasks.length} task{tasks.length !== 1 ? 's' : ''}</span>
+        {tasks.length > 1 && statuses.length > 1 && (
+          <div className="task-tabs">
+            <button className={`task-tab${tab === 'all' ? ' active' : ''}`} onClick={() => setTab('all')}>
+              All
             </button>
-          ))}
-        </div>
-      )}
-      <div className="task-cards">
-        {filtered.map(t => <TaskCard key={t.id} task={t} />)}
+            {statuses.map(s => (
+              <button key={s} className={`task-tab${tab === s ? ' active' : ''}`} onClick={() => setTab(s)}>
+                {STATUS_LABELS[s]}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+      <div className="task-grid">
+        {sorted.map(t => <TaskCard key={t.id} task={t} today={today} />)}
       </div>
     </div>
   )
 }
 
+function durMin(start: string, end: string): number {
+  const [sh, sm] = start.split(':').map(Number)
+  const [eh, em] = end.split(':').map(Number)
+  return (eh * 60 + em) - (sh * 60 + sm)
+}
+
+function fmtDur(min: number): string {
+  if (min < 60) return `${min}m`
+  const h = Math.floor(min / 60)
+  const m = min % 60
+  return m ? `${h}h ${m}m` : `${h}h`
+}
+
 function DayPlan({ schedule }: { schedule: Schedule }) {
+  const label = new Date(schedule.date + 'T12:00:00').toLocaleDateString('en-US', {
+    weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
+  })
+
   return (
     <div className="day-plan">
       <div className="day-plan-header">
-        <span className="day-plan-date">{schedule.date}</span>
-        <span className="day-plan-window">{schedule.start}–{schedule.end}</span>
+        <div className="day-plan-header-left">
+          <span className="day-plan-date">{label}</span>
+        </div>
+        <span className="day-plan-window">{schedule.start} – {schedule.end}</span>
       </div>
+
       <div className="day-plan-events">
-        {schedule.blocks.map((b, i) =>
-          b.type === 'break' ? (
-            <div key={i} className="plan-row">
-              <span className="plan-time">{b.start}</span>
-              <div className="plan-break">break</div>
+        {schedule.blocks.map((b, i) => {
+          const d = durMin(b.start, b.end)
+
+          if (b.type === 'break') return (
+            <div key={i} className="plan-break-row">
+              <div className="plan-time-col">
+                <span className="plan-t-start">{b.start}</span>
+              </div>
+              <div className="plan-break">
+                <span className="plan-break-dot" />
+                <span className="plan-break-label">{fmtDur(d)} break</span>
+                <span className="plan-break-dot" />
+              </div>
             </div>
-          ) : (
+          )
+
+          const src = SOURCE_LOGOS[b.task!.source]
+          return (
             <div key={i} className="plan-row">
-              <span className="plan-time">{b.start}<br />{b.end}</span>
+              <div className="plan-time-col">
+                <span className="plan-t-start">{b.start}</span>
+                <span className="plan-t-end">{b.end}</span>
+              </div>
+              <div className="plan-track">
+                <div className="plan-track-line" />
+              </div>
               <div className={`plan-event priority-edge-${b.task!.priority}`}>
                 <div className="plan-event-top">
-                  <span className="source-logo" title={SOURCE_LOGOS[b.task!.source]?.label}>
-                    {SOURCE_LOGOS[b.task!.source]?.logo}
-                  </span>
+                  <span className="source-logo" title={src?.label}>{src?.logo}</span>
                   <span className="plan-event-title">{b.task!.title}</span>
+                  <span className="plan-dur-badge">{fmtDur(d)}</span>
                 </div>
                 <div className="plan-event-meta">
                   <span className={`chip priority-${b.task!.priority}`}>{b.task!.priority}</span>
                   <span className={`chip status-${b.task!.status}`}>{STATUS_LABELS[b.task!.status] ?? b.task!.status}</span>
-                  {b.partial && <span className="chip partial">continue later</span>}
+                  {b.partial && <span className="chip partial">→ continue later</span>}
                 </div>
               </div>
             </div>
           )
-        )}
+        })}
       </div>
+
       {schedule.unplaced.length > 0 && (
         <div className="day-plan-unplaced">
-          Didn't fit today: {schedule.unplaced.slice(0, 5).map(t => t.title).join(', ')}
-          {schedule.unplaced.length > 5 && ` +${schedule.unplaced.length - 5} more`}
+          <span className="day-plan-unplaced-label">⚠️ Didn't fit today</span>
+          <div className="day-plan-unplaced-list">
+            {schedule.unplaced.map((t, i) => (
+              <span key={i} className={`chip priority-${t.priority}`}>{t.title}</span>
+            ))}
+          </div>
         </div>
       )}
     </div>
   )
 }
 
-const TASK_LINE_RE = /\s*\|\s*(jira|notion|google_calendar|manual)\s*$/
+const TASK_LINE_RE = /\s*\|\s*(jira|notion|google_calendar|manual|wire)\s*$/
 
 function AgentText({ text }: { text: string }) {
   return (
     <>
       {text.split('\n').map((line, i) => {
         const m = line.match(TASK_LINE_RE)
-        if (!m) return <div key={i}>{line || ' '}</div>
+        if (!m) return <div key={i}>{line || ' '}</div>
         const source = SOURCE_LOGOS[m[1]]
         return (
           <div key={i} className="task-line">
-            <span className="source-logo" title={source.label}>{source.logo}</span>
+            <span className="source-logo" title={source?.label}>{source?.logo}</span>
             <span>{line.slice(0, m.index)}</span>
           </div>
         )
@@ -189,19 +269,72 @@ function AgentText({ text }: { text: string }) {
   )
 }
 
-export default function ChatPanel() {
+// ── HITL inline widgets ────────────────────────────────────────────────────────
+
+function ClarifyWidget({
+  onSubmit, disabled,
+}: {
+  awaiting: AwaitingInput
+  onSubmit: (value: string) => void
+  disabled: boolean
+}) {
+  const [value, setValue] = useState('')
+  return (
+    <div className="hitl-clarify">
+      <input
+        className="hitl-clarify-input"
+        value={value}
+        onChange={e => setValue(e.target.value)}
+        onKeyDown={e => { if (e.key === 'Enter' && value.trim()) { e.preventDefault(); onSubmit(value.trim()) } }}
+        placeholder="Reply…"
+        autoFocus
+        disabled={disabled}
+      />
+      <button
+        className="hitl-clarify-send"
+        onClick={() => { if (value.trim()) onSubmit(value.trim()) }}
+        disabled={disabled || !value.trim()}
+        aria-label="Send"
+      >
+        <SendIcon />
+      </button>
+    </div>
+  )
+}
+
+function ApproveWidget({
+  onSubmit, disabled,
+}: {
+  awaiting: AwaitingInput
+  onSubmit: (value: string) => void
+  disabled: boolean
+}) {
+  return (
+    <div className="hitl-widget">
+      <div className="hitl-approve-row">
+        <button className="hitl-approve-btn" onClick={() => onSubmit('approve')} disabled={disabled}>
+          Approve
+        </button>
+        <button className="hitl-reject-btn" onClick={() => onSubmit('reject')} disabled={disabled}>
+          Reject
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ── ChatPanel ─────────────────────────────────────────────────────────────────
+
+export default function ChatPanel({ onSchedule }: { onSchedule?: (s: Schedule) => void }) {
   const [messages, setMessages] = useState<Message[]>([
-    { role: 'agent', text: "Hi! Ask me to list, add, edit, reorder tasks — or ask what to work on next." },
+    { role: 'agent', text: "Hi! Ask me to list, add, edit, delete, or reorder tasks — or ask what to work on next." },
   ])
   const [input, setInput] = useState('')
   const [isSending, setIsSending] = useState(false)
-  const [provider, setProviderState] = useState<Provider>('ollama')
+  const [threadId, setThreadId] = useState<string | undefined>(undefined)
   const bottomRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-
-  useEffect(() => {
-    getProvider().then(setProviderState).catch(() => {})
-  }, [])
+  const pendingHitlScheduleRef = useRef<Schedule | null>(null)
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -214,26 +347,51 @@ export default function ChatPanel() {
     el.style.height = `${el.scrollHeight}px`
   }
 
-  async function handleProviderToggle(next: Provider) {
-    await setProvider(next)
-    setProviderState(next)
-  }
-
-  async function send(text: string) {
-    if (!text || isSending) return
-
-    setMessages(prev => [...prev, { role: 'user', text }])
+  async function handleResponse(resPromise: Promise<import('./lib/api').ChatResponse>) {
     setIsSending(true)
-
     try {
-      const { response, tasks, schedule } = await sendChat(text)
-      setMessages(prev => [...prev, { role: 'agent', text: response, tasks, schedule }])
+      const res = await resPromise
+      if (res.threadId) setThreadId(res.threadId)
+
+      if (res.awaitingInput) {
+        if (res.awaitingInput.schedule) pendingHitlScheduleRef.current = res.awaitingInput.schedule
+        setMessages(prev => [...prev, {
+          role: 'agent',
+          text: res.awaitingInput!.question ?? res.awaitingInput!.summary ?? '',
+          awaitingInput: res.awaitingInput,
+        }])
+      } else {
+        setMessages(prev => [...prev, {
+          role: 'agent',
+          text: res.response ?? '',
+          tasks: res.tasks,
+          schedule: res.schedule,
+        }])
+        if (res.schedule) {
+          onSchedule?.(res.schedule)
+        } else if (pendingHitlScheduleRef.current) {
+          onSchedule?.(pendingHitlScheduleRef.current)
+          pendingHitlScheduleRef.current = null
+        }
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Something went wrong.'
       setMessages(prev => [...prev, { role: 'error', text: msg }])
     } finally {
       setIsSending(false)
     }
+  }
+
+  function send(text: string) {
+    if (!text || isSending) return
+    setMessages(prev => [...prev, { role: 'user', text }])
+    handleResponse(sendChat(text, threadId))
+  }
+
+  function resume(value: string) {
+    if (!threadId || isSending) return
+    setMessages(prev => [...prev, { role: 'user', text: value }])
+    handleResponse(resumeChat(value, threadId))
   }
 
   function handleSubmit() {
@@ -251,6 +409,9 @@ export default function ChatPanel() {
     }
   }
 
+  // Find the last agent message with awaitingInput (the active HITL widget)
+  const lastAwaitingIdx = messages.reduce((last, m, i) => m.awaitingInput ? i : last, -1)
+
   return (
     <>
       <header className="topbar">
@@ -258,20 +419,50 @@ export default function ChatPanel() {
       </header>
 
       <div className="chat-messages">
-        {messages.map((m, i) => (
-          <div key={i} className={`chat-message-row ${m.role}`}>
-            {m.role === 'user'
-              ? <span className="avatar user-avatar"><UserIcon /></span>
-              : <span className="avatar agent-avatar">✦</span>}
-            <div className={`chat-bubble${m.tasks?.length || m.schedule ? ' has-tasks' : ''}`}>
+        {messages.map((m, i) => {
+          const avatar = m.role === 'user'
+            ? <span className="avatar user-avatar"><UserIcon /></span>
+            : <span className="avatar agent-avatar">✦</span>
+
+          const hasRespondedAfter = messages.slice(i + 1).some(msg => msg.role === 'user')
+          const isActiveHitl = m.awaitingInput && i === lastAwaitingIdx && !hasRespondedAfter
+
+          const hasWide = !!(m.tasks?.length || m.schedule || m.awaitingInput?.schedule)
+          const bubble = (
+            <div className={`chat-bubble${hasWide ? ' has-tasks' : ''}`}>
               {m.schedule
-                ? <DayPlan schedule={m.schedule} />
+                ? (
+                  <>
+                    <DayPlan schedule={m.schedule} />
+                  </>
+                )
                 : m.tasks?.length
                   ? <TaskList tasks={m.tasks} />
-                  : m.role === 'agent' ? <AgentText text={m.text} /> : m.text}
+                  : m.awaitingInput
+                    ? (
+                      <>
+                        {m.awaitingInput.schedule
+                          ? <DayPlan schedule={m.awaitingInput.schedule} />
+                          : <AgentText text={m.text} />
+                        }
+                        {isActiveHitl && m.awaitingInput.kind === 'clarify' && (
+                          <ClarifyWidget awaiting={m.awaitingInput} onSubmit={resume} disabled={isSending} />
+                        )}
+                        {isActiveHitl && m.awaitingInput.kind === 'approve' && (
+                          <ApproveWidget awaiting={m.awaitingInput} onSubmit={resume} disabled={isSending} />
+                        )}
+                      </>
+                    )
+                    : m.role === 'agent' ? <AgentText text={m.text} /> : m.text}
             </div>
-          </div>
-        ))}
+          )
+
+          return (
+            <div key={i} className={`chat-message-row ${m.role}`}>
+              {m.role === 'user' ? <>{bubble}{avatar}</> : <>{avatar}{bubble}</>}
+            </div>
+          )
+        })}
 
         {isSending && (
           <div className="chat-message-row agent">
@@ -298,17 +489,6 @@ export default function ChatPanel() {
           />
           <div className="chat-input-controls">
             <div className="chat-input-controls-left">
-              <div className="provider-toggle">
-              {(['ollama', 'gemini'] as Provider[]).map(p => (
-                <button
-                  key={p}
-                  className={`provider-btn${provider === p ? ' active' : ''}`}
-                  onClick={() => handleProviderToggle(p)}
-                >
-                  {p === 'ollama' ? 'Ollama' : 'Gemini'}
-                </button>
-              ))}
-              </div>
               <button
                 className="plan-day-btn"
                 onClick={() => send('/daily-planner')}

@@ -1,6 +1,7 @@
 const store = require('../store')
 const { suggestTasks } = require('./suggest')
 const { planDay } = require('./planner')
+const wire = require('../adapters/wire')
 
 function fmtPlanText(plan) {
   const lines = [`Plan for ${plan.date} (${plan.start}–${plan.end}):`]
@@ -42,13 +43,26 @@ function sanitizeQuery(query) {
   return meaningful.join(' ')
 }
 
-function execute(intent) {
+// Best-effort: pull fresh WIRE issues into the local store before a read.
+// Never hard-fail a list/read if the MCP server is down or unconfigured.
+async function syncWire() {
+  if (!wire.isConfigured()) return
+  try {
+    const n = await wire.syncTasks()
+    console.log(`[wire] synced ${n} task(s)`)
+  } catch (err) {
+    console.warn(`[wire] sync skipped: ${err.message}`)
+  }
+}
+
+async function execute(intent) {
   const { intent: type, id, title, due, priority, tags, status, source, fields, append, to, refId, availableMinutes, mood, preference } = intent
   const rawQuery = [intent.query, ...(tags || [])].filter(Boolean).join(' ')
   const query = sanitizeQuery(rawQuery)
 
   switch (type) {
     case 'list': {
+      await syncWire()
       const hasFilter = [status, priority, source, query].some(v => v != null && v !== '')
       const tasks = hasFilter
         ? store.filterTasks({ status, priority, source, query })
@@ -59,6 +73,7 @@ function execute(intent) {
 
     case 'read': {
       if (!id) return 'Please specify which task to look up.'
+      await syncWire()
       const tasks = store.readTasks(id)
       if (!tasks.length) return `Task "${id}" not found.`
       return { text: fmt(tasks[0]), tasks }
@@ -66,6 +81,24 @@ function execute(intent) {
 
     case 'add': {
       if (!title) return 'Please provide a title for the new task.'
+
+      if (source === wire.WIRE_SOURCE) {
+        if (!wire.isConfigured()) return 'WIRE is not configured (set MCP_SERVER_URL and MCP_PAT).'
+        try {
+          const created = await wire.createTask({
+            title,
+            description: '',
+            ...(priority ? { priority } : {}),
+            ...(tags && tags.length ? { tags } : {}),
+            ...(due ? { due_date: due } : {}),
+          })
+          const newId = created?.id || created?.key
+          return `Created WIRE issue${newId ? ` [${newId}]` : ''}: ${title}`
+        } catch (err) {
+          return `Couldn't create the WIRE issue: ${err.message}`
+        }
+      }
+
       const task = store.writeTask({
         id: `manual-${Date.now()}`,
         source: 'manual',
@@ -93,6 +126,32 @@ function execute(intent) {
       if (!id) return 'Please specify the task id to edit.'
       if ((!fields || !Object.keys(fields).length) && (!append || !append.field || !append.value)) {
         return 'Please specify which fields to change, or what to append.'
+      }
+
+      const existing = store.readTasks(id)[0]
+      if (!existing) return `Task "${id}" not found.`
+
+      // WIRE tasks are modified directly on the platform via MCP (no local
+      // write-back — the next list/read sync reflects the change).
+      if (existing.source === wire.WIRE_SOURCE) {
+        if (!wire.isConfigured()) return 'WIRE is not configured (set MCP_SERVER_URL and MCP_PAT).'
+        const patch = { ...(fields || {}) }
+        const unsupported = []
+        if (append && append.field && append.value) {
+          if (append.field === 'tags') patch.tags = [...(existing.tags || []), append.value]
+          else if (append.field === 'title') patch.title = `${existing.title} ${append.value}`
+          else unsupported.push(append.field)
+        }
+        if (!Object.keys(patch).length) {
+          return `Can't append "${append.field}" on a WIRE task via MCP.`
+        }
+        try {
+          await wire.editTask(id, patch)
+          const note = unsupported.length ? ` (skipped unsupported: ${unsupported.join(', ')})` : ''
+          return `Updated WIRE issue [${id}]${note}`
+        } catch (err) {
+          return `Couldn't update the WIRE issue: ${err.message}`
+        }
       }
 
       const messages = []

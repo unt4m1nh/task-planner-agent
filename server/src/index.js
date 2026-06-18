@@ -2,11 +2,11 @@ require('dotenv').config()
 
 const { Hono } = require('hono')
 const { serve } = require('@hono/node-server')
-const { classify } = require('./agent/classify')
-const { execute } = require('./agent/execute')
-const { preloadOllama } = require('./llm')
+const { preloadOllama, LlmProviderError } = require('./llm')
 
 const app = new Hono()
+
+// ── CORS ──────────────────────────────────────────────────────────────────────
 
 app.use('*', async (c, next) => {
   await next()
@@ -14,14 +14,45 @@ app.use('*', async (c, next) => {
   c.res.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
   c.res.headers.set('Access-Control-Allow-Headers', 'Content-Type')
 })
-
 app.options('*', (c) => c.text('', 204))
 
-app.get('/', (c) => c.json({ message: 'Task Agent API', intents: ['list', 'read', 'add', 'edit', 'reorder', 'suggest'] }))
+// ── Graph (ESM — load once via dynamic import) ────────────────────────────────
 
-app.get('/api/provider', (c) => {
-  return c.json({ provider: process.env.LLM_PROVIDER || 'ollama' })
-})
+let graphPromise
+function getGraph() {
+  if (!graphPromise) graphPromise = import('./agent/graph.mjs').then(m => m.app)
+  return graphPromise
+}
+
+// ── /daily-planner slash command ──────────────────────────────────────────────
+// Parsed directly, no LLM call. Injects plannerSlots into graph state.
+
+function parseDailyPlanner(message) {
+  if (!/^\/daily-planner\b/.test(message)) return null
+  const args = message.slice('/daily-planner'.length).trim()
+  const slots = { intent: 'plan' }
+
+  const range = args.match(/(\d{1,2})(?::(\d{2}))?\s*-\s*(\d{1,2})(?::(\d{2}))?/)
+  if (range) {
+    slots.startTime = `${range[1].padStart(2, '0')}:${range[2] || '00'}`
+    slots.endTime   = `${range[3].padStart(2, '0')}:${range[4] || '00'}`
+  } else {
+    const hours = args.match(/(\d+(?:\.\d+)?)\s*h/i)
+    const mins  = args.match(/(\d+)\s*m/i)
+    if (hours) slots.availableMinutes = Math.round(parseFloat(hours[1]) * 60)
+    else if (mins) slots.availableMinutes = parseInt(mins[1], 10)
+  }
+
+  return slots
+}
+
+// ── Routes ────────────────────────────────────────────────────────────────────
+
+app.get('/', (c) => c.json({ message: 'Task Agent API', version: 2 }))
+
+app.get('/api/provider', (c) =>
+  c.json({ provider: process.env.LLM_PROVIDER || 'ollama' })
+)
 
 app.post('/api/provider', async (c) => {
   let body
@@ -37,71 +68,68 @@ app.post('/api/provider', async (c) => {
   return c.json({ ok: true, provider })
 })
 
-// "/daily-planner [9-17 | 09:00-17:00 | 4h | 240m]" — direct command, no LLM call
-function parseDailyPlanner(message) {
-  if (!/^\/daily-planner\b/.test(message)) return null
-  const args = message.slice('/daily-planner'.length).trim()
-  const intent = { intent: 'plan' }
-
-  const range = args.match(/(\d{1,2})(?::(\d{2}))?\s*-\s*(\d{1,2})(?::(\d{2}))?/)
-  if (range) {
-    intent.startTime = `${range[1].padStart(2, '0')}:${range[2] || '00'}`
-    intent.endTime = `${range[3].padStart(2, '0')}:${range[4] || '00'}`
-  } else {
-    const hours = args.match(/(\d+(?:\.\d+)?)\s*h/i)
-    const mins = args.match(/(\d+)\s*m/i)
-    if (hours) intent.availableMinutes = Math.round(parseFloat(hours[1]) * 60)
-    else if (mins) intent.availableMinutes = parseInt(mins[1], 10)
-  }
-
-  return intent
-}
-
+// POST /api/chat
+// Fresh turn:  { messages: [{role:"user", content:"..."}], threadId? }
+// Resume turn: { resume: "approve"|"reject"|"<text>", threadId }
 app.post('/api/chat', async (c) => {
-  // 1. parse body
   let body
-  try {
-    body = await c.req.json()
-  } catch {
+  try { body = await c.req.json() } catch {
     return c.json({ ok: false, error: 'request body must be valid JSON' }, 400)
   }
 
-  // 2. validate input
-  const message = body?.message
-  if (!message || typeof message !== 'string' || !message.trim()) {
-    return c.json({ ok: false, error: 'message (non-empty string) is required' }, 400)
+  const { messages, threadId, resume } = body ?? {}
+
+  const { Command } = await import('@langchain/langgraph')
+  const graph = await getGraph()
+  const tid = threadId ?? crypto.randomUUID()
+  const config = { configurable: { thread_id: tid } }
+
+  let input
+  if (resume !== undefined) {
+    input = new Command({ resume })
+  } else {
+    if (!Array.isArray(messages) || !messages.length) {
+      return c.json({ ok: false, error: 'messages (non-empty array) is required for a fresh turn' }, 400)
+    }
+    const lastMsg = messages[messages.length - 1]?.content ?? ''
+    if (typeof lastMsg !== 'string' || !lastMsg.trim()) {
+      return c.json({ ok: false, error: 'last message content must be a non-empty string' }, 400)
+    }
+
+    // Slash fast-path: inject plannerSlots, skip route model call
+    const plannerSlots = parseDailyPlanner(lastMsg.trim())
+    input = plannerSlots
+      ? { messages, plannerSlots }
+      : { messages }
   }
 
-  // 3. classify — slash commands bypass the LLM
-  let intent
+  let stateValues
   try {
-    intent = parseDailyPlanner(message.trim()) ?? await classify(message.trim())
+    stateValues = await graph.invoke(input, config)
   } catch (err) {
-    console.error('[POST /api/chat] classify error:', err)
-    return c.json({ ok: false, error: 'classification failed', detail: err.message }, 500)
+    console.error('[POST /api/chat] graph error:', err)
+    if (err instanceof LlmProviderError) {
+      return c.json({ ok: true, threadId: tid, response: err.userMessage })
+    }
+    return c.json({ ok: false, error: 'agent error', detail: err.message }, 500)
   }
 
-  // 4. execute
-  let result
-  try {
-    result = execute(intent)
-  } catch (err) {
-    console.error('[POST /api/chat] execute error:', err)
-    return c.json({ ok: false, error: 'execution failed', detail: err.message }, 500)
+  // Interrupt detection — clarify uses 202 (needs more input), approve uses 200
+  const interrupted = stateValues.__interrupt__?.[0]?.value
+  if (interrupted) {
+    const status = interrupted.kind === 'clarify' ? 202 : 200
+    return c.json({ ok: true, threadId: tid, awaitingInput: interrupted }, status)
   }
 
-  // 5. return — execute returns a string, or { text, tasks? , schedule? } for structured results
-  const response = typeof result === 'string' ? result : result.text
-  const tasks = typeof result === 'string' ? undefined : result.tasks
-  const schedule = typeof result === 'string' ? undefined : result.schedule
-
+  const r = stateValues.result ?? {}
   return c.json({
     ok: true,
-    message,
-    intent,
-    response,
-    ...(tasks ? { tasks } : {}),
-    ...(schedule ? { schedule } : {}),
+    threadId: tid,
+    message: messages?.[messages?.length - 1]?.content ?? '',
+    intent: r.intent ? { intent: r.intent } : undefined,
+    response: r.response ?? '',
+    ...(r.tasks    ? { tasks:    r.tasks    } : {}),
+    ...(r.schedule ? { schedule: r.schedule } : {}),
   })
 })
 
