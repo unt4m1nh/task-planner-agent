@@ -240,9 +240,105 @@ const ollamaSchema = {
   },
 }
 
+// ─── AdjustPatch schema (flat, for small-model constrained decoding) ─────────
+// Nested swap/dayStructure objects are flattened for Ollama reliability.
+// validateAdjustPatch() reshapes the flat output into the canonical AdjustPatch.
+
+const adjustPatchOllamaSchema = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    setMaxSession: {
+      type: 'integer',
+      minimum: 15,
+      description: 'Max session length in minutes (e.g. 120 for "2 hours"); omit to keep current',
+    },
+    break: { type: 'string', enum: ['more', 'less', 'off'] },
+    swapRemoveId: { type: 'string', description: 'Exact task id to remove from the schedule' },
+    swapCriteria: { type: 'string', enum: ['quick', 'important', 'due_soon'] },
+    pin: { type: 'array', items: { type: 'string' }, description: 'Task ids to force-keep' },
+    exclude: { type: 'array', items: { type: 'string' }, description: 'Task ids to force-drop' },
+    setWorkStart: { type: 'string', description: 'New work-window start time HH:MM' },
+    setWorkEnd: { type: 'string', description: 'New work-window end time HH:MM' },
+    needsClarification: { type: 'string', description: 'Question to ask when the request is ambiguous' },
+  },
+}
+
+const HH_MM_RE = /^\d{2}:\d{2}$/
+
+function validateAdjustPatch(obj) {
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) {
+    return { valid: false, errors: ['not an object'], value: null }
+  }
+
+  const patch = {}
+  const errors = []
+
+  if (obj.needsClarification != null) {
+    patch.needsClarification = { question: String(obj.needsClarification) }
+    return { valid: true, errors: [], value: patch }
+  }
+
+  if ('setMaxSession' in obj) {
+    if (obj.setMaxSession === null || obj.setMaxSession === 0) {
+      patch.setMaxSession = null
+    } else if (typeof obj.setMaxSession === 'number' && obj.setMaxSession >= 15) {
+      patch.setMaxSession = Math.round(obj.setMaxSession)
+    } else {
+      errors.push('setMaxSession must be a positive integer (minutes) or null')
+    }
+  }
+
+  if (obj.break != null) {
+    if (!['more', 'less', 'off'].includes(obj.break)) errors.push('break must be "more", "less", or "off"')
+    else patch.break = obj.break
+  }
+
+  if (obj.swapRemoveId) {
+    patch.swap = { removeId: String(obj.swapRemoveId) }
+    if (obj.swapCriteria != null) {
+      if (!['quick', 'important', 'due_soon'].includes(obj.swapCriteria)) {
+        errors.push('swapCriteria must be quick/important/due_soon')
+      } else {
+        patch.swap.criteria = obj.swapCriteria
+      }
+    }
+  }
+
+  if (obj.pin) {
+    if (!Array.isArray(obj.pin)) errors.push('pin must be an array')
+    else patch.pin = obj.pin.filter(x => typeof x === 'string')
+  }
+
+  if (obj.exclude) {
+    if (!Array.isArray(obj.exclude)) errors.push('exclude must be an array')
+    else patch.exclude = obj.exclude.filter(x => typeof x === 'string')
+  }
+
+  if (obj.setWorkStart || obj.setWorkEnd) {
+    const dsWin = { index: 0 }
+    if (obj.setWorkStart) {
+      if (!HH_MM_RE.test(obj.setWorkStart)) errors.push('setWorkStart must be HH:MM')
+      else dsWin.start = obj.setWorkStart
+    }
+    if (obj.setWorkEnd) {
+      if (!HH_MM_RE.test(obj.setWorkEnd)) errors.push('setWorkEnd must be HH:MM')
+      else dsWin.end = obj.setWorkEnd
+    }
+    if (!errors.length) patch.dayStructure = { setWorkWindow: dsWin }
+  }
+
+  const hasLever = Object.keys(patch).length > 0
+  if (!hasLever && !errors.length) errors.push('no recognized levers in patch')
+
+  return { valid: errors.length === 0, errors, value: errors.length === 0 ? patch : null }
+}
+
 module.exports = {
   intentSchema,
   ollamaSchema,
+  adjustPatchOllamaSchema,
+  validateAdjustPatch,
   listSchema,
   readSchema,
   addSchema,

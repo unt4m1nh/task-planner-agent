@@ -124,18 +124,24 @@ export async function syncWire() {
 export function fmtPlanText(plan) {
   const lines = [`Plan for ${plan.date} (${plan.start}–${plan.end}):`]
   for (const b of plan.blocks) {
-    if (b.type === 'break') {
+    const kind = b.kind ?? b.type  // support both old (type) and new (kind) format
+    if (kind === 'break') {
       lines.push(`${b.start}–${b.end}  break`)
-    } else {
-      const partial = b.partial ? ' — start, continue later' : ''
-      lines.push(`${b.start}–${b.end}  ${b.task.title} (${b.task.priority})${partial}`)
+    } else if (kind === 'fixed') {
+      lines.push(`${b.start}–${b.end}  ${b.label || 'fixed'}`)
+    } else if (b.task) {
+      const suffix = b.partial ? ' — partial' : b.isEst ? ' ~est' : ''
+      lines.push(`${b.start}–${b.end}  ${b.task.title} (${b.task.priority})${suffix}`)
     }
   }
-  if (plan.unplaced.length) {
-    const names = plan.unplaced.slice(0, 5).map(t => t.title).join(', ')
-    const more = plan.unplaced.length > 5 ? `, +${plan.unplaced.length - 5} more` : ''
+  // Support both old (unplaced: Task[]) and new (dropped: {title}[]) formats
+  const unfit = plan.dropped ?? plan.unplaced ?? []
+  if (unfit.length) {
+    const names = unfit.slice(0, 5).map(d => d.title ?? d).join(', ')
+    const more = unfit.length > 5 ? `, +${unfit.length - 5} more` : ''
     lines.push(`Didn't fit: ${names}${more}`)
   }
-  if (plan.blocks.length === 0) lines.push('Nothing to schedule 🎉')
+  const taskBlocks = plan.blocks.filter(b => (b.kind ?? b.type) === 'task')
+  if (taskBlocks.length === 0) lines.push('Nothing to schedule 🎉')
   return lines.join('\n')
 }

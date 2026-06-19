@@ -60,8 +60,8 @@ app.post('/api/provider', async (c) => {
     return c.json({ ok: false, error: 'request body must be valid JSON' }, 400)
   }
   const { provider } = body
-  if (provider !== 'ollama' && provider !== 'gemini') {
-    return c.json({ ok: false, error: 'provider must be "ollama" or "gemini"' }, 400)
+  if (provider !== 'ollama' && provider !== 'gemini' && provider !== 'gemini-flash') {
+    return c.json({ ok: false, error: 'provider must be "ollama", "gemini", or "gemini-flash"' }, 400)
   }
   process.env.LLM_PROVIDER = provider
   console.log(`[provider] switched to ${provider}`)

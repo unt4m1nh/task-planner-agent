@@ -19,12 +19,23 @@ const MODELS: { id: Provider; name: string; tier: string; detail: string; glyph:
   },
   {
     id: 'gemini',
-    name: 'Gemini',
+    name: 'Gemma 4',
     tier: 'Cloud',
-    detail: 'gemma4:26b',
+    detail: 'gemma-4-27b',
     glyph: (
       <svg viewBox="0 0 24 24" fill="currentColor">
         <path d="M12 2c.5 4.5 3.5 7.5 8 8-4.5.5-7.5 3.5-8 8-.5-4.5-3.5-7.5-8-8 4.5-.5 7.5-3.5 8-8Z" />
+      </svg>
+    ),
+  },
+  {
+    id: 'gemini-flash',
+    name: 'Flash',
+    tier: 'Cloud',
+    detail: 'gemini-2.5-flash',
+    glyph: (
+      <svg viewBox="0 0 24 24" fill="currentColor">
+        <path d="M13 2 4.5 13.5H11L10 22l8.5-11.5H13L13 2Z" />
       </svg>
     ),
   },
@@ -133,8 +144,8 @@ function PlanTimeline({ schedule }: { schedule: Schedule }) {
           const isPast = nowMin >= blockEndMin
           const isCurrent = nowMin >= startMin && nowMin < blockEndMin
 
-          if (b.type === 'break') {
-            const isLunch = b.label === 'lunch'
+          if (b.kind === 'break' || b.kind === 'fixed') {
+            const isLunch = b.label === 'lunch' || b.kind === 'fixed'
             if (isLunch) {
               return (
                 <div key={i} className={`stl-lunch${isPast ? ' stl-past' : ''}`}>
@@ -154,7 +165,7 @@ function PlanTimeline({ schedule }: { schedule: Schedule }) {
             )
           }
 
-          if (isCurrent) {
+          if (isCurrent && b.kind === 'task') {
             const task = b.task!
             const remainHours = task.estimate_hours != null
               ? (task.logged_hours != null && task.logged_hours > 0
@@ -213,9 +224,9 @@ function PlanTimeline({ schedule }: { schedule: Schedule }) {
         })}
       </div>
 
-      {schedule.unplaced.length > 0 && (
+      {(schedule.dropped?.length ?? 0) > 0 && (
         <div className="sidebar-plan-unplaced">
-          +{schedule.unplaced.length} didn't fit
+          +{schedule.dropped!.length} didn't fit
         </div>
       )}
     </div>

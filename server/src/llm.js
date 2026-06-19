@@ -14,7 +14,11 @@ const OLLAMA_URL = 'http://localhost:11434/api/generate'
 const OLLAMA_MODEL = 'gemma4:e2b'
 
 const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models'
-const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash'
+
+function resolveGeminiModel(provider) {
+  if (provider === 'gemini-flash') return 'gemini-2.5-flash'
+  return process.env.GEMINI_MODEL || 'gemma-4-27b-it'
+}
 
 // ─── task context builders ────────────────────────────────────────────────────
 
@@ -139,10 +143,11 @@ async function generateOllama(prompt, schema, system, genOpts = {}) {
   return data.response
 }
 
-async function generateGemini(prompt, schema, system, genOpts = {}) {
+async function generateGemini(prompt, schema, system, genOpts = {}, provider = 'gemini') {
   const apiKey = process.env.GEMINI_API_KEY
   if (!apiKey) throw new Error('GEMINI_API_KEY is not set (required when LLM_PROVIDER=gemini)')
 
+  const GEMINI_MODEL = resolveGeminiModel(provider)
   const isGemini25 = /^gemini-2\.5/.test(GEMINI_MODEL)
   const isGemma    = /^gemma/i.test(GEMINI_MODEL)
 
@@ -255,9 +260,9 @@ async function preloadOllama() {
 
 async function generate(prompt, schema, system, genOpts) {
   const provider = process.env.LLM_PROVIDER || 'ollama'
-  if (provider === 'gemini') return generateGemini(prompt, schema, system, genOpts)
+  if (provider === 'gemini' || provider === 'gemini-flash') return generateGemini(prompt, schema, system, genOpts, provider)
   if (provider === 'ollama') return generateOllama(prompt, schema, system, genOpts)
-  throw new Error(`Unknown LLM_PROVIDER: "${provider}" (expected "ollama" or "gemini")`)
+  throw new Error(`Unknown LLM_PROVIDER: "${provider}" (expected "ollama", "gemini", or "gemini-flash")`)
 }
 
 module.exports = { generate, buildTaskContext, getToday, preloadOllama, LlmProviderError }

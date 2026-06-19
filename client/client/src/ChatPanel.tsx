@@ -195,14 +195,14 @@ function DayPlan({ schedule }: { schedule: Schedule }) {
         {schedule.blocks.map((b, i) => {
           const d = durMin(b.start, b.end)
 
-          if (b.type === 'break') return (
+          if (b.kind === 'break' || b.kind === 'fixed') return (
             <div key={i} className="plan-break-row">
               <div className="plan-time-col">
                 <span className="plan-t-start">{b.start}</span>
               </div>
               <div className="plan-break">
                 <span className="plan-break-dot" />
-                <span className="plan-break-label">{fmtDur(d)} break</span>
+                <span className="plan-break-label">{b.label ?? `${fmtDur(d)} break`}</span>
                 <span className="plan-break-dot" />
               </div>
             </div>
@@ -235,12 +235,12 @@ function DayPlan({ schedule }: { schedule: Schedule }) {
         })}
       </div>
 
-      {schedule.unplaced.length > 0 && (
+      {(schedule.dropped?.length ?? 0) > 0 && (
         <div className="day-plan-unplaced">
           <span className="day-plan-unplaced-label">⚠️ Didn't fit today</span>
           <div className="day-plan-unplaced-list">
-            {schedule.unplaced.map((t, i) => (
-              <span key={i} className={`chip priority-${t.priority}`}>{t.title}</span>
+            {schedule.dropped!.map((d, i) => (
+              <span key={i} className="chip">{d.title}</span>
             ))}
           </div>
         </div>

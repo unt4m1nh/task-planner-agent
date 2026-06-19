@@ -21,19 +21,26 @@ export interface Task {
 export interface ScheduleBlock {
   start: string
   end: string
-  type: 'task' | 'break'
+  kind: 'task' | 'break' | 'fixed'
   task?: Task
   partial?: boolean
+  isEst?: boolean
   label?: string
 }
 
+
+export interface DroppedTask {
+  taskId: string
+  title: string
+  reason: string
+}
 
 export interface Schedule {
   date: string
   start: string
   end: string
   blocks: ScheduleBlock[]
-  unplaced: Task[]
+  dropped: DroppedTask[]
 }
 
 export interface AwaitingInput {
@@ -56,7 +63,7 @@ export interface ChatResponse {
   awaitingInput?: AwaitingInput
 }
 
-export type Provider = 'ollama' | 'gemini'
+export type Provider = 'ollama' | 'gemini' | 'gemini-flash'
 
 export async function getProvider(): Promise<Provider> {
   const res = await fetch(`${BASE_URL}/api/provider`)

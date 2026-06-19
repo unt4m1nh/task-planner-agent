@@ -26,6 +26,11 @@ export function afterPlannerUnderstand(state) {
   return 'planner_plan'
 }
 
+export function afterPlannerPlan(state) {
+  // Early exit (clarification / parse failure) → END; otherwise always show review
+  return state.result ? END : 'planner_plan_review'
+}
+
 export function afterPlannerPlanReview(state) {
   return state.result ? END : 'planner_plan'
 }

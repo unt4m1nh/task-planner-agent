@@ -163,4 +163,21 @@ function planDay(tasks, { date, startTime, endTime, availableMinutes } = {}) {
   }
 }
 
-module.exports = { planDay }
+/**
+ * Return tasks sorted by planner score (highest first) without scheduling them.
+ * Re-uses the same effectiveScore logic as planDay().
+ */
+function rankTasksForDay(tasks, { date, workMinutes = 480 } = {}) {
+  const planDate = date || getToday()
+  return tasks
+    .map((t, storeIdx) => {
+      const task = prepare(t, planDate)
+      if (task.isDone) return null
+      const meeting = isMeeting(task)
+      return { ...task, meeting, score: effectiveScore(task, planDate, workMinutes), storeIdx }
+    })
+    .filter(Boolean)
+    .sort((a, b) => b.score !== a.score ? b.score - a.score : a.storeIdx - b.storeIdx)
+}
+
+module.exports = { planDay, rankTasksForDay }

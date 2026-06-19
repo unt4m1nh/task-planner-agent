@@ -7,7 +7,7 @@ import { AgentState, HITL } from './state.mjs'
 import { routerNode, routerClarify } from './nodes-router.mjs'
 import { todoUnderstand, todoClarify, todoConfirm, todoExecute } from './nodes-todo.mjs'
 import { plannerUnderstand, plannerRank, plannerPlan, plannerPlanReview, plannerComplete, reorderConfirm } from './nodes-planner.mjs'
-import { afterRouter, afterTodoUnderstand, afterTodoConfirm, afterPlannerUnderstand, afterPlannerPlanReview } from './edges.mjs'
+import { afterRouter, afterTodoUnderstand, afterTodoConfirm, afterPlannerUnderstand, afterPlannerPlan, afterPlannerPlanReview } from './edges.mjs'
 
 export { AgentState, HITL }
 
@@ -39,7 +39,7 @@ graph
   .addEdge('todo_execute', END)
   .addConditionalEdges('planner_understand', afterPlannerUnderstand, ['planner_rank', 'planner_plan', 'reorder_confirm', 'planner_complete'])
   .addEdge('planner_rank', END)
-  .addEdge('planner_plan', 'planner_plan_review')
+  .addConditionalEdges('planner_plan', afterPlannerPlan, ['planner_plan_review', END])
   .addConditionalEdges('planner_plan_review', afterPlannerPlanReview, ['planner_plan', END])
   .addEdge('reorder_confirm', END)
   .addEdge('planner_complete', END)

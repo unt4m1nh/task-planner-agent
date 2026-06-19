@@ -3,7 +3,7 @@ import { fileURLToPath } from 'url'
 import { readFileSync } from 'fs'
 import path from 'path'
 import { interrupt } from '@langchain/langgraph'
-import { lastUserMsg, agentLog, parsePlanText, fmtPlanText } from './utils.mjs'
+import { lastUserMsg, agentLog, fmtPlanText } from './utils.mjs'
 
 const require = createRequire(import.meta.url)
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -11,42 +11,15 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const { generate } = require('../llm.js')
 const store = require('../store.js')
 const { suggestTasks } = require('./suggest.js')
-const { planDay } = require('./planner.js')
+const { rankTasksForDay } = require('./planner.js')
+const { scheduler, freeIntervals } = require('./scheduler.js')
+const planAdjust = require('./plan-adjust.js')
+const { adjustPatchOllamaSchema, validateAdjustPatch } = require('./schema.js')
 
-const PLAN_SKILL = readFileSync(
-  path.resolve(__dirname, './plan-day/SKILL.md'), 'utf8'
+const ADJUST_SKILL = readFileSync(
+  path.resolve(__dirname, './adjust-plan/SKILL.md'), 'utf8'
 ).replace(/^---[\s\S]*?---\n/, '')
 
-const PLAN_MODIFY_SKILL = `You are editing an existing daily schedule based on user feedback.
-
-Your job: make ONLY the specific changes the user requests. Do not replan from scratch.
-
-Scheduling rules to maintain:
-- Default window: 08:30–17:30
-- Lunch break 12:00–13:00 is FIXED and INDEPENDENT — never move, remove, or merge it with adjacent break sessions
-- No short break may end at 12:00 (right before lunch) or start at 13:00 (right after lunch)
-- Minimum work block: 30 minutes (meetings may be shorter, ≥ 15 min)
-- Break duration: 15 minutes
-- Block sizes must be multiples of 30 minutes (30, 60, 90, 120 …)
-- Leftover time < 30 minutes → absorbed into break buffer, not a work block
-- After editing, re-check that all end times are correct (end = start + duration) and no block overlaps lunch
-
-Common edits:
-- "fewer tasks" → remove the lowest-priority (low priority, no due date) task blocks; list them under ⚠️ Didn't fit; close the gap by shifting later blocks earlier
-- "more breaks" / "more break-time" → insert 15-minute break blocks between task blocks; shorten the last task block to make room if needed
-- "longer breaks" → extend existing break blocks by 15-minute increments; shorten adjacent task blocks to fit
-- "shorter tasks" / "less time on X" → reduce a task block to the nearest 30-min multiple below; mark it partial with (~Xm remaining) if it had more time
-- "move X earlier/later" → shift that task's time slot; ripple-shift subsequent blocks to avoid overlap
-- "remove X" → drop that task, shift later blocks earlier, add a break if extra time allows
-
-Output rules:
-- Output ONLY the schedule. No explanation, no preamble, no markdown fences.
-- The very first line MUST be exactly: Plan for YYYY-MM-DD (HH:MM–HH:MM):
-- Task rows: HH:MM–HH:MM  Task title (priority)
-- Break rows: HH:MM–HH:MM  break
-- Partial rows: HH:MM–HH:MM  Task title (priority) — partial (~Xm remaining)
-- Times must be HH:MM zero-padded; end times must not exceed the window end
-- If tasks are removed or dropped, append after a blank line: ⚠️ Didn't fit: Task A, Task B`
 
 export async function plannerUnderstand(state) {
   const slots = state.plannerSlots
@@ -62,8 +35,8 @@ export async function plannerUnderstand(state) {
       : slots.intent === 'reorder' ? 'reorder'
         : slots.intent
 
-  const hasPriorPlan = !!ctx.lastPlanText
-  const hasPriorSchedule = !!ctx.lastSchedule
+  const hasPriorPlan = !!(ctx.lastPlanText || ctx.planSchedule)
+  const hasPriorSchedule = !!(ctx.lastSchedule || ctx.planSchedule)
 
   const msg = lastUserMsg(state)
   const COMPLETE_RE = /\b(complet|finish|done|all done|wrap|wrapped|worked through|executed)\b/i
@@ -78,14 +51,13 @@ export async function plannerUnderstand(state) {
   const planFeedback = isFollowUp ? msg : null
 
   const allTasks = store.readTasks()
-  agentLog('planner_understand', { subIntent, tasks: allTasks.length, followUp: isFollowUp, modification: isPlanModification })
+  agentLog('planner_understand', { subIntent, tasks: allTasks.length, followUp: isFollowUp })
   return {
     tasks: allTasks,
     plannerSlots: {
       ...slots,
       subIntent,
       ...(planFeedback ? { planFeedback } : {}),
-      ...(ctx.lastPlanText && isFollowUp ? { lastPlanText: ctx.lastPlanText } : {}),
     },
   }
 }
@@ -108,63 +80,180 @@ export async function plannerRank(state) {
   }
 }
 
-export async function plannerPlan(state) {
+// ── helpers ──────────────────────────────────────────────────────────────────
+
+function buildDayStructure(slots, defaults) {
+  const day = {
+    workWindows: [{ ...defaults.workWindows[0] }],
+    fixedBlocks: [...defaults.fixedBlocks],
+    defaultBreak: defaults.defaultBreak,
+  }
+  if (slots.startTime) day.workWindows[0].start = slots.startTime
+  if (slots.endTime)   day.workWindows[0].end   = slots.endTime
+  if (slots.availableMinutes && !slots.endTime) {
+    const [h, m] = day.workWindows[0].start.split(':').map(Number)
+    const endMin = h * 60 + m + slots.availableMinutes
+    day.workWindows[0].end = `${String(Math.floor(endMin / 60)).padStart(2,'0')}:${String(endMin % 60).padStart(2,'0')}`
+  }
+  return day
+}
+
+function enrichSchedule(sched, day, planDate) {
+  return {
+    date:  planDate,
+    start: day.workWindows[0].start,
+    end:   day.workWindows[day.workWindows.length - 1].end,
+    blocks: sched.blocks,
+    dropped: sched.dropped,
+  }
+}
+
+// ── GENERATE flow ─────────────────────────────────────────────────────────────
+
+async function runGenerate(state, allTasks) {
   const slots = state.plannerSlots || {}
-  const allTasks = state.tasks || store.readTasks()
-  const isModification = !!(slots.planFeedback && slots.lastPlanText)
-  agentLog('planner_plan', { date: slots.date, startTime: slots.startTime, endTime: slots.endTime, tasks: allTasks.length, modification: isModification })
+  const { getToday } = require('../llm.js')
+  const planDate = slots.date || getToday()
 
-  let planText, schedule
+  const defaultDay = planAdjust.defaultDayStructure()
+  const day = buildDayStructure(slots, defaultDay)
+  const constraints = planAdjust.defaultConstraints()
 
-  if (isModification) {
-    const prompt = [
-      `Current plan:`,
-      slots.lastPlanText,
-      ``,
-      `User request: "${slots.planFeedback}"`,
-      ``,
-      `Apply the change. Output only the updated schedule.`,
-    ].join('\n')
+  // Compute available work minutes for scoring bonus
+  const workMin = freeIntervals(day.workWindows, day.fixedBlocks).reduce((s, iv) => s + (iv.end - iv.start), 0)
 
-    agentLog('planner_plan', { via: 'llm-modify', feedback: slots.planFeedback })
-    const raw = await generate(prompt, null, PLAN_MODIFY_SKILL, { num_predict: 1024, maxOutputTokens: 1024 })
-    const rawClean = raw ? raw.trim().replace(/^```[a-z]*\r?\n?/im, '').replace(/\r?\n?```\s*$/im, '').trim() : ''
-    schedule = parsePlanText(rawClean, allTasks)
+  const ranked = rankTasksForDay(allTasks, { date: planDate, workMinutes: workMin })
+  const sched  = scheduler(ranked, day, constraints)
+  const enriched = enrichSchedule(sched, day, planDate)
+  const planText = fmtPlanText(enriched)
 
-    if (schedule) {
-      planText = rawClean
-    } else {
-      console.warn('[planner_plan] parsePlanText failed. Full LLM output:\n', rawClean)
-      agentLog('planner_plan', { warn: 'parsePlanText failed, falling back to algo' })
+  agentLog('planner_plan', { via: 'generate', tasks: ranked.length, blocks: sched.blocks.length, dropped: sched.dropped.length })
+
+  return {
+    pendingAction: { type: 'review', planResult: { text: planText, schedule: enriched } },
+    sessionContext: {
+      lastPlanText: planText, lastSchedule: enriched, activeIntent: 'plan',
+      planSchedule: sched, planRanked: ranked,
+      planDayStructure: day, planConstraints: constraints,
+    },
+  }
+}
+
+function extractJson(raw) {
+  if (!raw) return null
+  if (typeof raw !== 'string') return raw
+  // Direct parse (Ollama constrained output)
+  try { return JSON.parse(raw) } catch {}
+  // Strip markdown fences
+  const stripped = raw.trim()
+    .replace(/^```(?:json)?\r?\n?/im, '')
+    .replace(/\r?\n?```\s*$/im, '')
+    .trim()
+  try { return JSON.parse(stripped) } catch {}
+  // Extract first {...} block (Gemma free-form responses)
+  const m = stripped.match(/\{[\s\S]*\}/)
+  if (m) try { return JSON.parse(m[0]) } catch {}
+  return null
+}
+
+// ── ADJUST flow ───────────────────────────────────────────────────────────────
+
+async function runAdjust(state, allTasks) {
+  const slots = state.plannerSlots || {}
+  const ctx   = state.sessionContext || {}
+  const feedback    = slots.planFeedback || lastUserMsg(state)
+  const prevRanked  = ctx.planRanked      || []
+  const prevDay     = ctx.planDayStructure || planAdjust.defaultDayStructure()
+  const prevConstr  = ctx.planConstraints  || planAdjust.defaultConstraints()
+  const prevSched   = ctx.planSchedule
+
+  // Build task reference for LLM context
+  const taskLines = (prevSched?.blocks || [])
+    .filter(b => b.kind === 'task' && b.task)
+    .map(b => `- id: ${b.task.id}, title: "${b.task.title}"`)
+  const taskRef = taskLines.length
+    ? `\nCurrently scheduled tasks:\n${taskLines.join('\n')}`
+    : ''
+
+  // Flat prompt — classify.js pattern: everything in user message, no system prompt.
+  // Gemma 4 ignores systemInstruction on complex prompts; a single merged message works.
+  const adjustPrompt = [
+    ADJUST_SKILL.trim(),
+    taskRef,
+    '',
+    `User request: "${feedback}"`,
+    '',
+    'Output a single JSON object only. No markdown, no explanation, no code fences:',
+  ].join('\n')
+
+  // LLM call → AdjustPatch, retry once on invalid output
+  let patch = null
+  for (let attempt = 0; attempt < 2 && !patch; attempt++) {
+    try {
+      const raw = await generate(adjustPrompt, adjustPatchOllamaSchema, null, { num_predict: 256, maxOutputTokens: 256 })
+      const obj = extractJson(raw)
+      if (!obj) { agentLog('planner_plan:adjust', { attempt, warn: 'no JSON found in response' }); continue }
+      const result = validateAdjustPatch(obj)
+      if (result.valid) patch = result.value
+      else agentLog('planner_plan:adjust', { attempt, errors: result.errors })
+    } catch (e) {
+      agentLog('planner_plan:adjust', { attempt, parseError: e.message })
     }
   }
 
-  if (!schedule) {
-    const plan = planDay(allTasks, {
-      date: slots.date,
-      startTime: slots.startTime,
-      endTime: slots.endTime,
-      availableMinutes: slots.availableMinutes,
-    })
-    planText = fmtPlanText(plan)
-    schedule = plan
+  if (!patch) {
+    return { result: { intent: 'plan', response: "I couldn't understand that adjustment. Could you describe the change more specifically?" } }
   }
 
-  agentLog('planner_plan:result', { blocks: schedule.blocks?.length ?? 0, unplaced: schedule.unplaced?.length ?? 0 })
+  if (patch.needsClarification) {
+    return { result: { intent: 'plan', response: patch.needsClarification.question } }
+  }
 
-  // Always queue a review — plannerPlanReview handles approve / feedback loop
+  // Apply patch deterministically
+  const day2 = planAdjust.applyDayStructurePatch(prevDay, patch.dayStructure)
+  const { ranked: ranked2, clarification } = planAdjust.applyTaskDelta(prevRanked, patch, store)
+  if (clarification) return { result: { intent: 'plan', response: clarification } }
+
+  const constr2 = planAdjust.mergeConstraints(prevConstr, patch)
+  const sched2  = scheduler(ranked2, day2, constr2)
+  const planDate = ctx.lastSchedule?.date || (require('../llm.js').getToday())
+  const enriched2 = enrichSchedule(sched2, day2, planDate)
+  const planText2 = fmtPlanText(enriched2)
+
+  agentLog('planner_plan', { via: 'adjust', levers: Object.keys(patch), blocks: sched2.blocks.length, dropped: sched2.dropped.length })
+
   return {
-    pendingAction: { type: 'review', planResult: { text: planText, schedule } },
-    sessionContext: { lastPlanText: planText, lastSchedule: schedule, activeIntent: 'plan' },
+    pendingAction: { type: 'review', planResult: { text: planText2, schedule: enriched2 } },
+    plannerSlots: { ...(state.plannerSlots || {}), planFeedback: null },
+    sessionContext: {
+      lastPlanText: planText2, lastSchedule: enriched2, activeIntent: 'plan',
+      planSchedule: sched2, planRanked: ranked2,
+      planDayStructure: day2, planConstraints: constr2,
+    },
   }
+}
+
+// ── plannerPlan — entry point ─────────────────────────────────────────────────
+
+export async function plannerPlan(state) {
+  const slots = state.plannerSlots || {}
+  const ctx   = state.sessionContext || {}
+  const allTasks = state.tasks || store.readTasks()
+
+  // Route: ADJUST if we have a prior schedule and ranked list; GENERATE otherwise
+  const hasExisting = !!(ctx.planSchedule && ctx.planRanked)
+  agentLog('planner_plan', { flow: hasExisting ? 'adjust' : 'generate', tasks: allTasks.length })
+
+  if (hasExisting) return runAdjust(state, allTasks)
+  return runGenerate(state, allTasks)
 }
 
 export async function plannerPlanReview(state) {
   const { text, schedule } = state.pendingAction.planResult
-  agentLog('planner_plan_review', { INTERRUPT: true, blocks: schedule.blocks?.length ?? 0, unplaced: schedule.unplaced?.length ?? 0 })
+  agentLog('planner_plan_review', { INTERRUPT: true, blocks: schedule.blocks?.length ?? 0, dropped: schedule.dropped?.length ?? 0 })
 
   const decision = interrupt({ kind: 'approve', summary: text, schedule, options: ['approve', 'reject'] })
-  agentLog('planner_plan_review', { decision })
+  agentLog('planner_plan_review', { decision: typeof decision === 'string' && decision.length > 30 ? decision.slice(0, 30) + '…' : decision })
 
   if (decision === 'approve') {
     return {
@@ -174,20 +263,22 @@ export async function plannerPlanReview(state) {
   }
 
   if (decision === 'reject') {
-    // Discard current plan and re-run the algo from scratch
-    agentLog('planner_plan_review', { action: 'reject → replanning from scratch' })
+    agentLog('planner_plan_review', { action: 'reject → GENERATE from scratch' })
     return {
       pendingAction: null,
-      plannerSlots: { ...(state.plannerSlots || {}), subIntent: 'plan', planFeedback: null, lastPlanText: null },
-      sessionContext: { lastPlanText: null, lastSchedule: null, activeIntent: 'plan' },
+      plannerSlots: { ...(state.plannerSlots || {}), subIntent: 'plan', planFeedback: null },
+      sessionContext: {
+        lastPlanText: null, lastSchedule: null, activeIntent: 'plan',
+        planSchedule: null, planRanked: null, planDayStructure: null, planConstraints: null,
+      },
     }
   }
 
-  // Any other text is treated as modification feedback — loop back to plannerPlan
-  agentLog('planner_plan_review', { action: 'feedback', feedback: decision })
+  // Any other text → ADJUST feedback; keep planSchedule/planRanked for ADJUST routing
+  agentLog('planner_plan_review', { action: 'feedback → ADJUST' })
   return {
     pendingAction: null,
-    plannerSlots: { ...(state.plannerSlots || {}), subIntent: 'plan', planFeedback: decision, lastPlanText: text },
+    plannerSlots: { ...(state.plannerSlots || {}), subIntent: 'plan', planFeedback: decision },
     sessionContext: { lastPlanText: text, lastSchedule: schedule, activeIntent: 'plan' },
   }
 }
