@@ -80,6 +80,7 @@ app.post('/api/chat', async (c) => {
   const { messages, threadId, resume } = body ?? {}
 
   const { Command } = await import('@langchain/langgraph')
+  const { tracingEnabled } = await import('langsmith/client')
   const graph = await getGraph()
   const tid = threadId ?? crypto.randomUUID()
   const config = { configurable: { thread_id: tid } }
