@@ -31,7 +31,7 @@ task-planner-agent/
 ## Prerequisites
 
 - Node.js
-- [Ollama](https://ollama.com/) running locally with the `qwen3.5:0.8b` model
+- [Ollama](https://ollama.com/) running locally with the `gemma4:e2b` model
   (or a Gemini API key, see below)
 
 ## Setup
@@ -49,7 +49,7 @@ npm install
 Pull the local model for Ollama:
 
 ```bash
-ollama pull qwen3.5:0.8b
+ollama pull gemma4:e2b
 ```
 
 ## Running
@@ -73,7 +73,7 @@ npm run dev
 
 The LLM provider is configurable via `LLM_PROVIDER` in `server/.env`:
 
-- `ollama` (default) — local `qwen3.5:0.8b`
+- `ollama` (default) — local `gemma4:e2b`
 - `gemini` — Gemini API (requires `GEMINI_API_KEY`)
 
 The provider can also be switched at runtime from the sidebar in the UI, or via
