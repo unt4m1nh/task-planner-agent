@@ -1,3 +1,6 @@
 node_modules
 .env
 *.log
+
+# LangGraph API
+.langgraph_api

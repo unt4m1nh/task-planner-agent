@@ -1,0 +1,7 @@
+{
+  "graphs": {
+    "agent": "./src/agent/graph.mjs:app"
+  },
+  "node_version": "22",
+  "env": ".env"
+}
