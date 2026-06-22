@@ -1,4 +1,4 @@
-const { generate, buildTaskContext } = require('../llm')
+const { generate, buildTaskContext } = require('../../llm')
 const { ollamaSchema } = require('./schema')
 
 const MAX_RETRIES = 2

@@ -1,6 +1,6 @@
 const store = require('../store')
-const { suggestTasks } = require('./suggest')
-const { planDay } = require('./planner')
+const { suggestTasks } = require('./scheduling/suggest')
+const { planDay } = require('./scheduling/planner')
 const wire = require('../adapters/wire')
 
 function fmtPlanText(plan) {

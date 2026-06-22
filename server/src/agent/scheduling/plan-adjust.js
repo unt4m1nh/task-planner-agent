@@ -99,7 +99,7 @@ function applyTaskDelta(ranked, patch, store) {
         let replacement
         if (criteria) {
           const { scoreTask, prepare } = require('./suggest')
-          const { getToday } = require('../llm')
+          const { getToday } = require('../../llm')
           const today = getToday()
           const scored = unscheduled
             .map(t => { const p = prepare(t, today); return { task: p, ...scoreTask(p, { preference: criteria }) } })

@@ -1,5 +1,5 @@
-const { getToday } = require('../llm')
-const store = require('../store')
+const { getToday } = require('../../llm')
+const store = require('../../store')
 
 const PRIORITY_SCORE = { critical: 40, high: 30, medium: 20, low: 10 }
 

@@ -20,7 +20,7 @@ app.options('*', (c) => c.text('', 204))
 
 let graphPromise
 function getGraph() {
-  if (!graphPromise) graphPromise = import('./agent/graph.mjs').then(m => m.app)
+  if (!graphPromise) graphPromise = import('./agent/graph/graph.mjs').then(m => m.app)
   return graphPromise
 }
 

@@ -4,10 +4,10 @@ import { HITL } from './state.mjs'
 import { fmt, sanitizeQuery, agentLog, syncWire } from './utils.mjs'
 
 const require = createRequire(import.meta.url)
-const { classify } = require('./classify.js')
-const store = require('../store.js')
-const wire = require('../adapters/wire.js')
-const { validateTodoSlots, isDestructive, describeAction } = require('./contract.js')
+const { classify } = require('../classify/classify.js')
+const store = require('../../store.js')
+const wire = require('../../adapters/wire.js')
+const { validateTodoSlots, isDestructive, describeAction } = require('../classify/contract.js')
 
 export async function todoUnderstand(state) {
   const slots = state.todoSlots

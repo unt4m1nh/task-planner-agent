@@ -1,6 +1,6 @@
 {
   "graphs": {
-    "agent": "./src/agent/graph.mjs:app"
+    "agent": "./src/agent/graph/graph.mjs:app"
   },
   "node_version": "22",
   "env": ".env"

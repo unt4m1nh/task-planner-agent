@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "node --watch-path=src --watch src/index.js",
-    "test": "node --test src/agent/scheduler.test.mjs",
+    "test": "node --test src/agent/scheduling/scheduler.test.mjs",
     "mcp:discover": "node src/adapters/discover.js"
   },
   "keywords": [],

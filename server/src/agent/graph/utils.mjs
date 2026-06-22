@@ -1,8 +1,8 @@
 import { createRequire } from 'module'
 
 const require = createRequire(import.meta.url)
-const store = require('../store.js')
-const wire = require('../adapters/wire.js')
+const store = require('../../store.js')
+const wire = require('../../adapters/wire.js')
 
 export function lastUserMsg(state) {
   for (let i = state.messages.length - 1; i >= 0; i--) {

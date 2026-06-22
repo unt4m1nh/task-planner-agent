@@ -3,7 +3,7 @@ import { interrupt } from '@langchain/langgraph'
 import { lastUserMsg, agentLog } from './utils.mjs'
 
 const require = createRequire(import.meta.url)
-const { classify } = require('./classify.js')
+const { classify } = require('../classify/classify.js')
 
 const TODO_INTENTS = new Set(['list', 'read', 'add', 'edit', 'delete'])
 const PLANNER_INTENTS = new Set(['suggest', 'plan', 'reorder'])

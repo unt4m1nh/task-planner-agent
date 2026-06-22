@@ -1,4 +1,4 @@
-const { getToday } = require('../llm')
+const { getToday } = require('../../llm')
 const { prepare, scoreTask } = require('./suggest')
 
 const DEFAULT_START = '08:30'

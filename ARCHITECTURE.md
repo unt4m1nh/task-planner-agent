@@ -31,20 +31,28 @@ todo-agent/
 │   │   ├── wire.js             # WIRE MCP adapter (optional)
 │   │   └── mcpClient.js        # MCP SSE client
 │   └── agent/
-│       ├── graph.mjs           # StateGraph assembly + compile (entry point)
-│       ├── state.mjs           # AgentState annotation, HITL config flags
-│       ├── edges.mjs           # conditional edge functions
-│       ├── utils.mjs           # shared helpers (parsePlanText, fmtPlanText, …)
-│       ├── nodes-router.mjs    # router, router_clarify nodes
-│       ├── nodes-todo.mjs      # todo_understand/clarify/confirm/execute nodes
-│       ├── nodes-planner.mjs   # planner_* nodes + reorder_confirm
-│       ├── classify.js         # LLM intent classifier (JSON schema enforced)
-│       ├── contract.js         # slot validation, isDestructive, describeAction
-│       ├── schema.js           # Ollama JSON schema per intent
-│       ├── suggest.js          # pure scoring fn for the `suggest` intent
-│       ├── planner.js          # pure scheduling algorithm for `plan`
-│       ├── suggest-tasks/SKILL.md   # scoring spec (LLM system prompt)
-│       └── plan-day/SKILL.md        # scheduling spec (LLM system prompt)
+│       ├── execute.js          # legacy switch(intent) handler (kept for reference)
+│       ├── graph/
+│       │   ├── graph.mjs           # StateGraph assembly + compile (entry point)
+│       │   ├── state.mjs           # AgentState annotation, HITL config flags
+│       │   ├── edges.mjs           # conditional edge functions
+│       │   ├── utils.mjs           # shared helpers (parsePlanText, fmtPlanText, …)
+│       │   ├── nodes-router.mjs    # router, router_clarify nodes
+│       │   ├── nodes-todo.mjs      # todo_understand/clarify/confirm/execute nodes
+│       │   └── nodes-planner.mjs   # planner_* nodes + reorder_confirm
+│       ├── classify/
+│       │   ├── classify.js         # LLM intent classifier (JSON schema enforced)
+│       │   ├── contract.js         # slot validation, isDestructive, describeAction
+│       │   └── schema.js           # Ollama JSON schema per intent
+│       ├── scheduling/
+│       │   ├── suggest.js          # pure scoring fn for the `suggest` intent
+│       │   ├── planner.js          # pure scheduling algorithm for `plan`
+│       │   ├── plan-adjust.js      # pure patch application for planner ADJUST flow
+│       │   └── scheduler.js        # pure clock-cursor scheduler
+│       └── skills/
+│           ├── suggest-tasks/SKILL.md   # scoring spec (LLM system prompt)
+│           ├── plan-day/SKILL.md        # scheduling spec (LLM system prompt)
+│           └── adjust-plan/SKILL.md     # plan-adjustment spec (LLM system prompt)
 └── client/client/src/
     ├── App.tsx                 # root layout; owns schedule state
     ├── Sidebar.tsx             # model switcher + plan timeline

@@ -3,13 +3,11 @@ import path from 'path'
 import { StateGraph, START, END } from '@langchain/langgraph'
 import { SqliteSaver } from '@langchain/langgraph-checkpoint-sqlite'
 
-import { AgentState, HITL } from './state.mjs'
+import { AgentState } from './state.mjs'
 import { routerNode, routerClarify } from './nodes-router.mjs'
 import { todoUnderstand, todoClarify, todoConfirm, todoExecute } from './nodes-todo.mjs'
 import { plannerUnderstand, plannerRank, plannerPlan, plannerPlanReview, plannerComplete, reorderConfirm } from './nodes-planner.mjs'
 import { afterRouter, afterTodoUnderstand, afterTodoConfirm, afterPlannerUnderstand, afterPlannerPlan, afterPlannerPlanReview } from './edges.mjs'
-
-export { AgentState, HITL }
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -44,7 +42,7 @@ graph
   .addEdge('reorder_confirm', END)
   .addEdge('planner_complete', END)
 
-const DB_PATH = path.resolve(__dirname, '../../../checkpoints.db')
+const DB_PATH = path.resolve(__dirname, '../../../../checkpoints.db')
 const checkpointer = SqliteSaver.fromConnString(DB_PATH)
 
 export const app = graph.compile({ checkpointer })

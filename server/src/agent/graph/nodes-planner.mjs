@@ -8,16 +8,16 @@ import { lastUserMsg, agentLog, fmtPlanText } from './utils.mjs'
 const require = createRequire(import.meta.url)
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
-const { generate } = require('../llm.js')
-const store = require('../store.js')
-const { suggestTasks } = require('./suggest.js')
-const { rankTasksForDay } = require('./planner.js')
-const { scheduler, freeIntervals } = require('./scheduler.js')
-const planAdjust = require('./plan-adjust.js')
-const { adjustPatchOllamaSchema, validateAdjustPatch } = require('./schema.js')
+const { generate } = require('../../llm.js')
+const store = require('../../store.js')
+const { suggestTasks } = require('../scheduling/suggest.js')
+const { rankTasksForDay } = require('../scheduling/planner.js')
+const { scheduler, freeIntervals } = require('../scheduling/scheduler.js')
+const planAdjust = require('../scheduling/plan-adjust.js')
+const { adjustPatchOllamaSchema, validateAdjustPatch } = require('../classify/schema.js')
 
 const ADJUST_SKILL = readFileSync(
-  path.resolve(__dirname, './adjust-plan/SKILL.md'), 'utf8'
+  path.resolve(__dirname, '../skills/adjust-plan/SKILL.md'), 'utf8'
 ).replace(/^---[\s\S]*?---\n/, '')
 
 
@@ -112,7 +112,7 @@ function enrichSchedule(sched, day, planDate) {
 
 async function runGenerate(state, allTasks) {
   const slots = state.plannerSlots || {}
-  const { getToday } = require('../llm.js')
+  const { getToday } = require('../../llm.js')
   const planDate = slots.date || getToday()
 
   const defaultDay = planAdjust.defaultDayStructure()
@@ -216,7 +216,7 @@ async function runAdjust(state, allTasks) {
 
   const constr2 = planAdjust.mergeConstraints(prevConstr, patch)
   const sched2  = scheduler(ranked2, day2, constr2)
-  const planDate = ctx.lastSchedule?.date || (require('../llm.js').getToday())
+  const planDate = ctx.lastSchedule?.date || (require('../../llm.js').getToday())
   const enriched2 = enrichSchedule(sched2, day2, planDate)
   const planText2 = fmtPlanText(enriched2)
 

@@ -231,8 +231,8 @@ async function preloadOllama() {
   // Lazy require: classify.js requires this module at load time, so importing
   // it at the top here would create a circular dependency. By call time
   // (server startup) both modules are fully initialized.
-  const { SYSTEM: SYSTEM_PROMPT } = require('./agent/classify')
-  const { ollamaSchema: INTENT_SCHEMA } = require('./agent/schema')
+  const { SYSTEM: SYSTEM_PROMPT } = require('./agent/classify/classify')
+  const { ollamaSchema: INTENT_SCHEMA } = require('./agent/classify/schema')
   try {
     const res = await fetch(OLLAMA_URL, {
       method: 'POST',

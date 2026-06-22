@@ -77,7 +77,7 @@ There is **no** `GET /api/tasks` endpoint. The frontend communicates only via `P
 
 **Model: qwen3.5:0.8b (Ollama) is the production model — small, schema enforcement required**
 - Always use `think: false` when calling Ollama
-- Always pass `format: <JSON Schema>` (constrained decoding, see `agent/schema.js`)
+- Always pass `format: <JSON Schema>` (constrained decoding, see `agent/classify/schema.js`)
 - Keep prompts short, intents closed and enumerable
 - Validate JSON output → retry once → fall back to `unknown` with a clarification if still invalid
 
@@ -104,12 +104,12 @@ There is **no** `GET /api/tasks` endpoint. The frontend communicates only via `P
 - `reorder`— move a task to top, bottom, before, or after another (needs `id`, `to`)
 - `suggest`— recommend what to work on next. The model only extracts
              `{ availableMinutes?, mood? }` — it does **not** pick tasks.
-             `agent/suggest.js` runs a pure scoring function (priority + due-date
+             `agent/scheduling/suggest.js` runs a pure scoring function (priority + due-date
              proximity + estimated remaining time vs. `availableMinutes`, nudged
              by `mood`) and `execute.js` formats the picks into a reply
 - `plan`    — build a time-blocked schedule for a day. The model only extracts
              `{ date?, startTime?, endTime?, availableMinutes? }` — it does **not**
-             schedule. `agent/planner.js` runs a pure function: it reuses
+             schedule. `agent/scheduling/planner.js` runs a pure function: it reuses
              `suggest.js`'s scoring (plus workflow bonuses — finish in-progress
              work first, overdue next, day's scheduled tasks up front), then walks
              a clock cursor across the work window slicing tasks into blocks,
@@ -140,17 +140,28 @@ server/src/
     mcpClient.js     MCP SSE client for WIRE integration
     wire.js          WIRE-specific adapter (list/read/write via MCP)
   agent/
-    schema.js        JSON Schema per intent, enforced via Ollama `format`
-    classify.js      build prompt → call model → parse → validate → retry → fallback
-    contract.js      validateTodoSlots, isDestructive, describeAction (node entry guards)
     execute.js       legacy switch(intent) handler (kept, not called by index.js post-v2)
-    graph.mjs        LangGraph StateGraph — AgentState, all nodes, edges, SqliteSaver checkpointer
-    suggest.js       pure scoring function for the `suggest` intent
-    planner.js       pure scheduling algorithm (kept as reference; graph now uses plan-day/SKILL.md + LLM)
-    suggest-tasks/
-      SKILL.md       scoring + reply spec for the suggest intent (loaded as LLM system prompt)
-    plan-day/
-      SKILL.md       scheduling algorithm spec for the plan intent (loaded as LLM system prompt)
+    classify/
+      schema.js      JSON Schema per intent, enforced via Ollama `format`
+      classify.js    build prompt → call model → parse → validate → retry → fallback
+      contract.js    validateTodoSlots, isDestructive, describeAction (node entry guards)
+    graph/
+      graph.mjs      LangGraph StateGraph — AgentState, all nodes, edges, SqliteSaver checkpointer
+      state.mjs      AgentState Annotation.Root, HITL config map
+      edges.mjs      conditional edge functions
+      nodes-router.mjs    router, router_clarify
+      nodes-todo.mjs      todo_understand/clarify/confirm/execute
+      nodes-planner.mjs   planner_understand/rank/plan/plan_review/complete, reorder_confirm
+      utils.mjs      shared node helpers (lastUserMsg, fmt, agentLog, syncWire, ...)
+    scheduling/
+      suggest.js     pure scoring function for the `suggest` intent
+      planner.js     pure scheduling algorithm (kept as reference; graph now uses plan-day/SKILL.md + LLM)
+      plan-adjust.js pure patch application for the planner ADJUST flow
+      scheduler.js   pure clock-cursor scheduler (blocks, breaks, partials)
+    skills/
+      suggest-tasks/SKILL.md  scoring + reply spec for the suggest intent (loaded as LLM system prompt)
+      plan-day/SKILL.md       scheduling algorithm spec for the plan intent (loaded as LLM system prompt)
+      adjust-plan/SKILL.md    plan-adjustment spec for the planner ADJUST flow (loaded as LLM system prompt)
 checkpoints.db       SqliteSaver database (created on first run, gitignored)
 client/client/src/
   App.tsx            root layout: <Sidebar /> + <ChatPanel />
@@ -209,7 +220,7 @@ MCP_QUERY=      # optional filter for which issues to sync
 
 ## LangGraph control plane (Phase 2)
 
-The agent runs inside a LangGraph `StateGraph` (`agent/graph.mjs`, ESM). The server stays CommonJS — the graph is loaded via a single `import()` at startup and cached.
+The agent runs inside a LangGraph `StateGraph` (`agent/graph/graph.mjs`, ESM). The server stays CommonJS — the graph is loaded via a single `import()` at startup and cached.
 
 **State** (`AgentState`): `messages` (append-reducer), `route`, `todoSlots`, `plannerSlots`, `tasks`, `pendingAction`, `result`.
 
