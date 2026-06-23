@@ -1,8 +1,13 @@
+import { createRequire } from 'module'
 import { END } from '@langchain/langgraph'
+
+const require = createRequire(import.meta.url)
+const { MAX_REWRITES } = require('../../rag/agentic.js')
 
 export function afterRouter(state) {
   if (state.route === 'todo') return 'todo_understand'
   if (state.route === 'planner') return 'planner_understand'
+  if (state.route === 'rag') return 'rag_retrieve'
   return 'router_clarify'
 }
 
@@ -33,4 +38,10 @@ export function afterPlannerPlan(state) {
 
 export function afterPlannerPlanReview(state) {
   return state.result ? END : 'planner_plan'
+}
+
+export function afterRagGrade(state) {
+  const { relevant, attempts = 0 } = state.ragSlots
+  if (relevant || attempts >= MAX_REWRITES) return 'rag_generate'
+  return 'rag_rewrite'
 }

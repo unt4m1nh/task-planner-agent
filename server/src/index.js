@@ -5,6 +5,9 @@ const { serve } = require('@hono/node-server')
 const { preloadOllama, LlmProviderError } = require('./llm')
 const { ingestDocument } = require('./rag/ingest')
 const { searchDocuments } = require('./rag/search')
+const { extractText } = require('./rag/extract')
+
+const MAX_UPLOAD_BYTES = 20 * 1024 * 1024
 
 const app = new Hono()
 
@@ -94,6 +97,35 @@ app.post('/api/rag/documents', async (c) => {
   }
 })
 
+// POST /api/rag/upload — multipart/form-data { file, title? } → extract text from
+// .pdf/.docx, chunk, embed, store. title defaults to the original filename.
+app.post('/api/rag/upload', async (c) => {
+  let body
+  try { body = await c.req.parseBody() } catch {
+    return c.json({ ok: false, error: 'request body must be multipart/form-data' }, 400)
+  }
+  const file = body?.file
+  if (!(file instanceof File)) {
+    return c.json({ ok: false, error: 'file is required' }, 400)
+  }
+  if (file.size > MAX_UPLOAD_BYTES) {
+    return c.json({ ok: false, error: `file exceeds ${MAX_UPLOAD_BYTES / (1024 * 1024)}MB limit` }, 400)
+  }
+  const title = (typeof body.title === 'string' && body.title.trim()) || file.name
+  try {
+    const buffer = Buffer.from(await file.arrayBuffer())
+    const content = await extractText(buffer, file.name)
+    if (!content?.trim()) {
+      return c.json({ ok: false, error: 'no extractable text found in file' }, 400)
+    }
+    const { documentId, chunkCount } = await ingestDocument({ source: 'upload', title, content })
+    return c.json({ ok: true, documentId, chunkCount, title })
+  } catch (err) {
+    console.error('[POST /api/rag/upload] error:', err)
+    return c.json({ ok: false, error: 'upload failed', detail: err.message }, 500)
+  }
+})
+
 // POST /api/rag/search — { query, topK?, source? } → nearest chunks
 app.post('/api/rag/search', async (c) => {
   let body
@@ -176,6 +208,7 @@ app.post('/api/chat', async (c) => {
     response: r.response ?? '',
     ...(r.tasks    ? { tasks:    r.tasks    } : {}),
     ...(r.schedule ? { schedule: r.schedule } : {}),
+    ...(r.sources  ? { sources:  r.sources  } : {}),
   })
 })
 

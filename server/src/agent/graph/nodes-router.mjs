@@ -7,6 +7,7 @@ const { classify } = require('../classify/classify.js')
 
 const TODO_INTENTS = new Set(['list', 'read', 'add', 'edit', 'delete'])
 const PLANNER_INTENTS = new Set(['suggest', 'plan', 'reorder'])
+const RAG_INTENTS = new Set(['ask'])
 
 // Words that strongly signal the user is talking about their schedule, not a task.
 // Used to intercept misclassified "add"/"edit"/"delete" when an active plan exists.
@@ -67,9 +68,22 @@ export async function routerNode(state) {
       route: 'planner',
       plannerSlots: classified,
       todoSlots: null,
+      ragSlots: null,
       result: null,
       pendingAction: null,
       sessionContext: { activeRoute: 'planner', activeIntent: classified.intent, turnCount },
+    }
+  }
+  if (RAG_INTENTS.has(classified.intent)) {
+    agentLog('router', { route: 'rag', intent: classified.intent, turn: turnCount, msg })
+    return {
+      route: 'rag',
+      ragSlots: { query: classified.query, originalQuery: classified.query, attempts: 0 },
+      todoSlots: null,
+      plannerSlots: null,
+      result: null,
+      pendingAction: null,
+      sessionContext: { activeRoute: 'rag', activeIntent: classified.intent, turnCount },
     }
   }
 
@@ -80,6 +94,7 @@ export async function routerNode(state) {
         route: 'todo',
         todoSlots: { intent: ctx.activeIntent, contextFallback: true },
         plannerSlots: null,
+        ragSlots: null,
         result: null,
         pendingAction: null,
         sessionContext: { turnCount },
@@ -90,6 +105,18 @@ export async function routerNode(state) {
         route: 'planner',
         plannerSlots: { intent: ctx.activeIntent, contextFallback: true },
         todoSlots: null,
+        ragSlots: null,
+        result: null,
+        pendingAction: null,
+        sessionContext: { turnCount },
+      }
+    }
+    if (ctx.activeRoute === 'rag') {
+      return {
+        route: 'rag',
+        ragSlots: { query: msg, originalQuery: msg, attempts: 0 },
+        todoSlots: null,
+        plannerSlots: null,
         result: null,
         pendingAction: null,
         sessionContext: { turnCount },
@@ -102,6 +129,7 @@ export async function routerNode(state) {
     route: 'unknown',
     todoSlots: null,
     plannerSlots: null,
+    ragSlots: null,
     result: null,
     pendingAction: null,
     sessionContext: { turnCount },

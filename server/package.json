@@ -7,7 +7,8 @@
     "start": "node src/index.js",
     "dev": "node --watch-path=src --watch src/index.js",
     "test": "node --test src/agent/scheduling/scheduler.test.mjs",
-    "mcp:discover": "node src/adapters/discover.js"
+    "mcp:discover": "node src/adapters/discover.js",
+    "rag:inspect": "node src/rag/inspect.js"
   },
   "keywords": [],
   "author": "",
@@ -22,6 +23,8 @@
     "dotenv": "^17.4.2",
     "hono": "^4.12.23",
     "langsmith": "^0.7.10",
+    "mammoth": "^1.12.0",
+    "pdf-parse": "^2.4.5",
     "sqlite-vec": "^0.1.9"
   },
   "devDependencies": {

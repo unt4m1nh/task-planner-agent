@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { sendChat, resumeChat, type Task, type TaskStatus, type Schedule, type AwaitingInput } from './lib/api'
+import { sendChat, resumeChat, uploadDocument, type Task, type TaskStatus, type Schedule, type AwaitingInput } from './lib/api'
 
 interface Message {
   role: 'user' | 'agent' | 'error'
@@ -16,6 +16,15 @@ function SendIcon() {
       <line x1="14" y1="2" x2="8" y2="14" />
       <line x1="14" y1="2" x2="2" y2="8" />
       <polyline points="2,8 8,14 14,2" />
+    </svg>
+  )
+}
+
+function UploadIcon() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M8 2v8M5 5l3-3 3 3" />
+      <path d="M2.5 10.5v2a1.5 1.5 0 0 0 1.5 1.5h8a1.5 1.5 0 0 0 1.5-1.5v-2" />
     </svg>
   )
 }
@@ -332,8 +341,10 @@ export default function ChatPanel({ onSchedule }: { onSchedule?: (s: Schedule) =
   const [input, setInput] = useState('')
   const [isSending, setIsSending] = useState(false)
   const [threadId, setThreadId] = useState<string | undefined>(undefined)
+  const [isUploading, setIsUploading] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const pendingHitlScheduleRef = useRef<Schedule | null>(null)
 
   useEffect(() => {
@@ -400,6 +411,25 @@ export default function ChatPanel({ onSchedule }: { onSchedule?: (s: Schedule) =
     setInput('')
     if (textareaRef.current) textareaRef.current.style.height = 'auto'
     send(text)
+  }
+
+  async function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file || isUploading) return
+    setIsUploading(true)
+    try {
+      const { chunkCount, title } = await uploadDocument(file)
+      setMessages(prev => [...prev, {
+        role: 'agent',
+        text: `Added "${title}" to your documents (${chunkCount} chunk${chunkCount !== 1 ? 's' : ''} indexed). Ask me anything about it.`,
+      }])
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Upload failed.'
+      setMessages(prev => [...prev, { role: 'error', text: msg }])
+    } finally {
+      setIsUploading(false)
+    }
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -500,6 +530,22 @@ export default function ChatPanel({ onSchedule }: { onSchedule?: (s: Schedule) =
                   <path d="M2 6.5h12M5.5 2v2.5M10.5 2v2.5" />
                 </svg>
                 Plan my day
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf,.docx"
+                hidden
+                onChange={handleFileSelected}
+              />
+              <button
+                className="plan-day-btn"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploading}
+                title="Upload a PDF or DOCX to ask questions about it"
+              >
+                <UploadIcon />
+                {isUploading ? 'Uploading…' : 'Upload doc'}
               </button>
             </div>
             <button

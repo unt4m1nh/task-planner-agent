@@ -3,7 +3,7 @@ const { ollamaSchema } = require('./schema')
 
 const MAX_RETRIES = 2
 
-const VALID_INTENTS = ['list', 'read', 'add', 'edit', 'delete', 'reorder', 'suggest', 'plan', 'unknown']
+const VALID_INTENTS = ['list', 'read', 'add', 'edit', 'delete', 'reorder', 'suggest', 'plan', 'ask', 'unknown']
 
 const SYSTEM = `You are a task manager assistant. Classify the user message into one intent and extract slots.
 Use the task context above to resolve task references (e.g. "that task", "the auth ticket", "JIRA-1042").
@@ -20,6 +20,8 @@ Intents:
             do not pick tasks yourself
 - plan    : build a schedule for the day — extract date, startTime, endTime, availableMinutes if given,
             do not pick or order tasks yourself
+- ask     : answer a question grounded in the user's uploaded documents or past daily-planner logs —
+            e.g. "what did I plan last Tuesday", "what does my onboarding doc say about X" (needs query)
 - unknown : cannot determine intent — set clarification to ask the user
 
 Examples:
@@ -41,6 +43,10 @@ Examples:
 - "plan my day"                                → {"intent":"plan"}
 - "schedule my tasks from 9 to 5"              → {"intent":"plan","startTime":"09:00","endTime":"17:00"}
 - "plan my day, I only have 4 hours"           → {"intent":"plan","availableMinutes":240}
+
+- "what did I plan last Tuesday"                  → {"intent":"ask","query":"what did I plan last Tuesday"}
+- "what does my onboarding doc say about setup"   → {"intent":"ask","query":"onboarding doc setup"}
+- "search my notes for the auth bug"              → {"intent":"ask","query":"auth bug"}
 
 IMPORTANT: Always extract filter slots when the user specifies status, priority, source, tags, or a keyword.
 Never omit a filter the user mentioned. Only omit "query" for generic words like "tasks", "all", "my".
@@ -101,6 +107,12 @@ function validate(parsed) {
       if (!parsed.to) return { ok: false, reason: 'reorder requires to' }
       if ((parsed.to === 'before' || parsed.to === 'after') && !parsed.refId) {
         return { ok: false, reason: `reorder with to="${parsed.to}" requires refId` }
+      }
+      break
+
+    case 'ask':
+      if (!parsed.query || typeof parsed.query !== 'string' || !parsed.query.trim()) {
+        return { ok: false, reason: 'ask requires a non-empty query' }
       }
       break
   }

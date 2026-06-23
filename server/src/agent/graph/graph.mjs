@@ -7,7 +7,8 @@ import { AgentState } from './state.mjs'
 import { routerNode, routerClarify } from './nodes-router.mjs'
 import { todoUnderstand, todoClarify, todoConfirm, todoExecute } from './nodes-todo.mjs'
 import { plannerUnderstand, plannerRank, plannerPlan, plannerPlanReview, plannerComplete, reorderConfirm } from './nodes-planner.mjs'
-import { afterRouter, afterTodoUnderstand, afterTodoConfirm, afterPlannerUnderstand, afterPlannerPlan, afterPlannerPlanReview } from './edges.mjs'
+import { ragRetrieve, ragGrade, ragRewrite, ragGenerate } from './nodes-rag.mjs'
+import { afterRouter, afterTodoUnderstand, afterTodoConfirm, afterPlannerUnderstand, afterPlannerPlan, afterPlannerPlanReview, afterRagGrade } from './edges.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -26,10 +27,14 @@ graph
   .addNode('planner_plan', plannerPlan)
   .addNode('planner_plan_review', plannerPlanReview)
   .addNode('reorder_confirm', reorderConfirm)
+  .addNode('rag_retrieve', ragRetrieve)
+  .addNode('rag_grade', ragGrade)
+  .addNode('rag_rewrite', ragRewrite)
+  .addNode('rag_generate', ragGenerate)
 
 graph
   .addEdge(START, 'router')
-  .addConditionalEdges('router', afterRouter, ['todo_understand', 'planner_understand', 'router_clarify'])
+  .addConditionalEdges('router', afterRouter, ['todo_understand', 'planner_understand', 'rag_retrieve', 'router_clarify'])
   .addEdge('router_clarify', 'router')
   .addConditionalEdges('todo_understand', afterTodoUnderstand, ['todo_clarify', 'todo_confirm', 'todo_execute'])
   .addEdge('todo_clarify', 'todo_understand')
@@ -41,6 +46,10 @@ graph
   .addConditionalEdges('planner_plan_review', afterPlannerPlanReview, ['planner_plan', END])
   .addEdge('reorder_confirm', END)
   .addEdge('planner_complete', END)
+  .addEdge('rag_retrieve', 'rag_grade')
+  .addConditionalEdges('rag_grade', afterRagGrade, ['rag_generate', 'rag_rewrite'])
+  .addEdge('rag_rewrite', 'rag_retrieve')
+  .addEdge('rag_generate', END)
 
 const DB_PATH = path.resolve(__dirname, '../../../../checkpoints.db')
 const checkpointer = SqliteSaver.fromConnString(DB_PATH)

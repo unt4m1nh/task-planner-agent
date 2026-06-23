@@ -7,6 +7,7 @@ export const AgentState = Annotation.Root({
   route: Annotation(),
   todoSlots: Annotation(),
   plannerSlots: Annotation(),
+  ragSlots: Annotation(),
   tasks: Annotation(),
   pendingAction: Annotation(),
   result: Annotation(),

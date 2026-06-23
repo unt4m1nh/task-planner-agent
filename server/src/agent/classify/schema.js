@@ -172,6 +172,19 @@ const unknownSchema = {
   },
 }
 
+const askSchema = {
+  type: 'object',
+  required: ['intent', 'query'],
+  additionalProperties: false,
+  properties: {
+    intent: { type: 'string', const: 'ask' },
+    query: {
+      type: 'string',
+      description: 'The question to answer, grounded in uploaded docs and daily-planner logs',
+    },
+  },
+}
+
 // ─── combined schema (oneOf discriminated by intent) ─────────────────────────
 
 const intentSchema = {
@@ -187,6 +200,7 @@ const intentSchema = {
     suggestSchema,
     planSchema,
     unknownSchema,
+    askSchema,
   ],
 }
 
@@ -199,7 +213,7 @@ const ollamaSchema = {
   type: 'object',
   required: ['intent'],
   properties: {
-    intent: { type: 'string', enum: ['list', 'read', 'add', 'edit', 'delete', 'reorder', 'suggest', 'plan', 'unknown'] },
+    intent: { type: 'string', enum: ['list', 'read', 'add', 'edit', 'delete', 'reorder', 'suggest', 'plan', 'ask', 'unknown'] },
     id: { type: 'string' },
     title: { type: 'string' },
     description: { type: 'string' },
@@ -237,6 +251,35 @@ const ollamaSchema = {
     mood: { type: 'string', enum: ['tired', 'energetic', 'neutral'] },
     preference: { type: 'string', enum: ['quick', 'important', 'due_soon'] },
     clarification: { type: 'string' },
+  },
+}
+
+// ─── Agentic RAG loop schemas (grade_documents / rewrite_question) ──────────
+// Mirrors the LangGraph agentic-RAG tutorial's structured-output steps —
+// see agent/rag/agentic.js for the retrieve→grade→(generate|rewrite) loop.
+
+const gradeDocumentsSchema = {
+  type: 'object',
+  required: ['binary_score'],
+  additionalProperties: false,
+  properties: {
+    binary_score: {
+      type: 'string',
+      enum: ['yes', 'no'],
+      description: '"yes" if the retrieved documents are relevant to the question, else "no"',
+    },
+  },
+}
+
+const rewriteQuestionSchema = {
+  type: 'object',
+  required: ['rewrittenQuery'],
+  additionalProperties: false,
+  properties: {
+    rewrittenQuery: {
+      type: 'string',
+      description: 'The original question reformulated to improve semantic retrieval',
+    },
   },
 }
 
@@ -347,4 +390,7 @@ module.exports = {
   suggestSchema,
   planSchema,
   unknownSchema,
+  askSchema,
+  gradeDocumentsSchema,
+  rewriteQuestionSchema,
 }

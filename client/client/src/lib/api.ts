@@ -95,6 +95,27 @@ export async function sendChat(message: string, threadId?: string): Promise<Chat
   return data as ChatResponse
 }
 
+export interface UploadDocumentResponse {
+  ok: boolean
+  documentId: number
+  chunkCount: number
+  title: string
+}
+
+export async function uploadDocument(file: File): Promise<UploadDocumentResponse> {
+  const formData = new FormData()
+  formData.append('file', file)
+  const res = await fetch(`${BASE_URL}/api/rag/upload`, {
+    method: 'POST',
+    body: formData,
+  })
+  const data = await res.json()
+  if (!res.ok || !data.ok) {
+    throw new Error(data?.error ?? `Upload failed with status ${res.status}`)
+  }
+  return data as UploadDocumentResponse
+}
+
 export async function resumeChat(resume: string, threadId: string): Promise<ChatResponse> {
   const res = await fetch(`${BASE_URL}/api/chat`, {
     method: 'POST',
