@@ -15,6 +15,7 @@ const { rankTasksForDay } = require('../scheduling/planner.js')
 const { scheduler, freeIntervals } = require('../scheduling/scheduler.js')
 const planAdjust = require('../scheduling/plan-adjust.js')
 const { adjustPatchOllamaSchema, validateAdjustPatch } = require('../classify/schema.js')
+const { ingestPlannerLog } = require('../../rag/ingest.js')
 
 const ADJUST_SKILL = readFileSync(
   path.resolve(__dirname, '../skills/adjust-plan/SKILL.md'), 'utf8'
@@ -256,6 +257,7 @@ export async function plannerPlanReview(state) {
   agentLog('planner_plan_review', { decision: typeof decision === 'string' && decision.length > 30 ? decision.slice(0, 30) + '…' : decision })
 
   if (decision === 'approve') {
+    ingestPlannerLog(schedule).catch(e => agentLog('planner_plan_review', { ragIngestError: e.message }))
     return {
       result: { intent: 'plan', response: 'Plan approved — your schedule is set for the day.' },
       pendingAction: null,

@@ -3,6 +3,8 @@ require('dotenv').config()
 const { Hono } = require('hono')
 const { serve } = require('@hono/node-server')
 const { preloadOllama, LlmProviderError } = require('./llm')
+const { ingestDocument } = require('./rag/ingest')
+const { searchDocuments } = require('./rag/search')
 
 const app = new Hono()
 
@@ -66,6 +68,49 @@ app.post('/api/provider', async (c) => {
   process.env.LLM_PROVIDER = provider
   console.log(`[provider] switched to ${provider}`)
   return c.json({ ok: true, provider })
+})
+
+// POST /api/rag/documents — { title, content, source? } → ingest into the vector store
+app.post('/api/rag/documents', async (c) => {
+  let body
+  try { body = await c.req.json() } catch {
+    return c.json({ ok: false, error: 'request body must be valid JSON' }, 400)
+  }
+  const { title, content, source } = body ?? {}
+  if (typeof title !== 'string' || !title.trim()) {
+    return c.json({ ok: false, error: 'title (non-empty string) is required' }, 400)
+  }
+  if (typeof content !== 'string' || !content.trim()) {
+    return c.json({ ok: false, error: 'content (non-empty string) is required' }, 400)
+  }
+  try {
+    const { documentId, chunkCount } = await ingestDocument({
+      source: source || 'upload', title, content,
+    })
+    return c.json({ ok: true, documentId, chunkCount })
+  } catch (err) {
+    console.error('[POST /api/rag/documents] error:', err)
+    return c.json({ ok: false, error: 'ingest failed', detail: err.message }, 500)
+  }
+})
+
+// POST /api/rag/search — { query, topK?, source? } → nearest chunks
+app.post('/api/rag/search', async (c) => {
+  let body
+  try { body = await c.req.json() } catch {
+    return c.json({ ok: false, error: 'request body must be valid JSON' }, 400)
+  }
+  const { query, topK, source } = body ?? {}
+  if (typeof query !== 'string' || !query.trim()) {
+    return c.json({ ok: false, error: 'query (non-empty string) is required' }, 400)
+  }
+  try {
+    const results = await searchDocuments(query, { topK, source })
+    return c.json({ ok: true, results })
+  } catch (err) {
+    console.error('[POST /api/rag/search] error:', err)
+    return c.json({ ok: false, error: 'search failed', detail: err.message }, 500)
+  }
 })
 
 // POST /api/chat

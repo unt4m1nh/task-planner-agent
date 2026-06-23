@@ -72,6 +72,8 @@ There is **no** `GET /api/tasks` endpoint. The frontend communicates only via `P
 - `GET /api/provider` — returns current `{ provider }` (`"ollama"` or `"gemini"`)
 - `POST /api/provider` — switches provider at runtime `{ provider: "ollama"|"gemini" }`; updates `process.env.LLM_PROVIDER`
 - `/daily-planner [9-17 | 09:00-17:00 | 4h | 240m]` — slash command; parsed by `parseDailyPlanner()` in `index.js` and injected as `plannerSlots` into graph state, bypassing the route model call
+- `POST /api/rag/documents` — `{ title, content, source? }` → chunks, embeds (Ollama `bge-m3`), stores in `rag.db`; returns `{ documentId, chunkCount }`
+- `POST /api/rag/search` — `{ query, topK?, source? }` → embeds query, vec0 KNN search, returns nearest chunks with `{ text, distance, title, source, ... }`
 
 ## Design decisions (read before modifying)
 
@@ -139,6 +141,12 @@ server/src/
     discover.js      adapter registry / discovery
     mcpClient.js     MCP SSE client for WIRE integration
     wire.js          WIRE-specific adapter (list/read/write via MCP)
+  rag/
+    db.js          opens rag.db (repo root), loads sqlite-vec, creates documents/chunks/vec_chunks
+    embeddings.js  embed() via Ollama /api/embed, model `bge-m3` (1024-dim)
+    chunk.js       chunkText() — paragraph-aware splitter with overlap
+    ingest.js      ingestDocument(), ingestPlannerLog() (auto-called on plan approve)
+    search.js      searchDocuments() — embeds query, vec0 KNN, joins back to chunk/document text
   agent/
     execute.js       legacy switch(intent) handler (kept, not called by index.js post-v2)
     classify/
@@ -217,6 +225,16 @@ MCP_CODE_KEY=   # Code-Key header token (optional)
 MCP_SOURCE=wire # source id for synced tasks
 MCP_QUERY=      # optional filter for which issues to sync
 ```
+
+## RAG vector store
+
+`src/rag/` provides retrieval over two kinds of content: daily-planner logs (auto-ingested when a plan is approved in `planner_plan_review`, via `ingestPlannerLog()`) and user-uploaded documents (`POST /api/rag/documents`).
+
+- **Storage**: `rag.db` at repo root (gitignored) — separate SQLite file from `task.json`/`checkpoints.db`. Uses the `sqlite-vec` extension loaded into `better-sqlite3` for a `vec0` virtual table (`vec_chunks`), plus plain `documents`/`chunks` tables for text.
+- **Embeddings**: Ollama `bge-m3` (1024-dim) via `/api/embed` (batch-capable). Override with `RAG_EMBED_MODEL`/`RAG_EMBED_DIM` env vars — if you change the model, the dimension must match or `vec0` insert fails.
+- **Chunking**: paragraph-aware, ~1200 chars with 150 char overlap (`chunk.js`) — only kicks in for content longer than the chunk size.
+- **vec0 rowid quirk**: `vec0` requires the `rowid` bind param to be a `BigInt`, not a plain JS number, or better-sqlite3 throws "Only integers are allowed for primary key values" — see `toVecBuffer`/`insertVec.run(BigInt(chunkId), ...)` in `ingest.js`.
+- This is retrieval infrastructure only — nothing currently injects search results into chat prompts; that's a separate integration if/when needed.
 
 ## LangGraph control plane (Phase 2)
 

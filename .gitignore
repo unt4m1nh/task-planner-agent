@@ -1,0 +1,4 @@
+# RAG vector store (local, regenerable)
+rag.db
+rag.db-shm
+rag.db-wal
