@@ -33,8 +33,8 @@ export async function ragRewrite(state) {
 
 export async function ragGenerate(state) {
   const { originalQuery, docs } = state.ragSlots
-  const { answer, sources } = await generateStep(originalQuery, docs || [])
-  agentLog('rag_generate', { sources: sources.length })
+  const { answer, reasoning, sources } = await generateStep(originalQuery, docs || [])
+  agentLog('rag_generate', { sources: sources.length, reasoning })
   return {
     result: { intent: 'ask', response: answer, sources },
     ragSlots: null,

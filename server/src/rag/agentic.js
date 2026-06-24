@@ -4,12 +4,12 @@
 // LLM pattern. See agent/graph/nodes-rag.mjs for the StateGraph wiring.
 
 const { generate, buildTaskContext } = require('../llm')
-const { gradeDocumentsSchema, rewriteQuestionSchema } = require('../agent/classify/schema')
+const { gradeDocumentsSchema, rewriteQuestionSchema, generateAnswerSchema } = require('../agent/classify/schema')
 const { searchDocuments } = require('./search')
 
 const MAX_REWRITES = 2
 
-async function retrieveStep(query, { topK = 5, source } = {}) {
+async function retrieveStep(query, { topK = 3, source } = {}) {
   return searchDocuments(query, { topK, source })
 }
 
@@ -70,6 +70,7 @@ async function generateStep(originalQuery, docs, { includeTaskContext = true } =
   if (!docs.length) {
     return {
       answer: "I couldn't find anything relevant in your uploaded documents or daily-planner logs.",
+      reasoning: null,
       sources: [],
     }
   }
@@ -77,7 +78,7 @@ async function generateStep(originalQuery, docs, { includeTaskContext = true } =
   const context = docs.map((d, i) => `[${i + 1}] (${d.source}: "${d.title}")\n${d.text}`).join('\n\n')
   const lines = [
     'Answer the question using ONLY the context below. Cite sources by their [n] tag.',
-    "If the context doesn't fully answer the question, say what's missing.",
+    'Be critical: call out gaps, contradictions, or low-confidence claims in the retrieved data instead of restating it at face value.',
     '',
     '=== CONTEXT ===',
     context,
@@ -86,29 +87,24 @@ async function generateStep(originalQuery, docs, { includeTaskContext = true } =
   if (includeTaskContext) {
     lines.push('', '=== CURRENT TASKS ===', buildTaskContext(), '=== END CURRENT TASKS ===')
   }
-  lines.push('', `Question: "${originalQuery}"`, '', 'Answer:')
+  lines.push('', `Question: "${originalQuery}"`, '', 'Output a single JSON object only. No markdown, no explanation, no code fences:')
 
-  const answer = await generate(lines.join('\n'), null, null, { num_predict: 400, maxOutputTokens: 400 })
+  const sources = docs.map(d => ({ title: d.title, source: d.source, documentId: d.documentId }))
+  const raw = await generate(lines.join('\n'), generateAnswerSchema, null, { num_predict: 1024, maxOutputTokens: 1024 })
+  const parsed = extractJSON(raw)
+
+  if (!parsed?.answer?.dataRetrieved) {
+    return { answer: "I had trouble generating a clear answer from the retrieved context. Please try again.", reasoning: parsed?.reasoning ?? null, sources }
+  }
+
+  // question/reasoning are schema-only scaffolding that keeps the model honest
+  // (forces it to restate the ask and critique the data before answering) —
+  // neither is shown to the user, only dataRetrieved is.
   return {
-    answer: answer.trim(),
-    sources: docs.map(d => ({ title: d.title, source: d.source, documentId: d.documentId })),
+    answer: parsed.answer.dataRetrieved,
+    reasoning: parsed.reasoning || null,
+    sources,
   }
 }
 
-// Full retrieve → grade → (generate | rewrite → loop) flow as one callable
-// function. Any node (rag branch, planner, todo) can call this directly to
-// get a grounded answer without needing to be wired into the rag StateGraph.
-async function runAgenticRag(question, opts = {}) {
-  let query = question
-  let docs = []
-  for (let attempt = 0; attempt <= MAX_REWRITES; attempt++) {
-    docs = await retrieveStep(query, opts)
-    const relevant = await gradeStep(query, docs)
-    if (relevant || attempt === MAX_REWRITES) break
-    query = await rewriteStep(query)
-  }
-  const { answer, sources } = await generateStep(question, docs, opts)
-  return { answer, sources, finalQuery: query, rewrites: query !== question }
-}
-
-module.exports = { retrieveStep, gradeStep, rewriteStep, generateStep, runAgenticRag, MAX_REWRITES }
+module.exports = { retrieveStep, gradeStep, rewriteStep, generateStep, MAX_REWRITES }

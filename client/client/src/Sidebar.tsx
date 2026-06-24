@@ -39,6 +39,17 @@ const MODELS: { id: Provider; name: string; tier: string; detail: string; glyph:
       </svg>
     ),
   },
+  {
+    id: 'gemma-31b',
+    name: 'Gemma 4 31B',
+    tier: 'Cloud',
+    detail: 'gemma-4-31b-it',
+    glyph: (
+      <svg viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 2c.5 4.5 3.5 7.5 8 8-4.5.5-7.5 3.5-8 8-.5-4.5-3.5-7.5-8-8 4.5-.5 7.5-3.5 8-8Z" />
+      </svg>
+    ),
+  },
 ]
 
 const SOURCE_LABELS: Record<string, string> = {

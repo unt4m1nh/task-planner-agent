@@ -63,7 +63,7 @@ export interface ChatResponse {
   awaitingInput?: AwaitingInput
 }
 
-export type Provider = 'ollama' | 'gemini' | 'gemini-flash'
+export type Provider = 'ollama' | 'gemini' | 'gemini-flash' | 'gemma-31b'
 
 export async function getProvider(): Promise<Provider> {
   const res = await fetch(`${BASE_URL}/api/provider`)

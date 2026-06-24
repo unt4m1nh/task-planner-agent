@@ -1,4 +1,4 @@
-// ─── per-intent schemas ───────────────────────────────────────────────────────
+// ─── per-intent schemas ──────────────────────────────────────────────────────
 
 const listSchema = {
   type: 'object',
@@ -283,6 +283,33 @@ const rewriteQuestionSchema = {
   },
 }
 
+const generateAnswerSchema = {
+  type: 'object',
+  required: ['reasoning', 'answer'],
+  additionalProperties: false,
+  properties: {
+    reasoning: {
+      type: 'string',
+      description: 'Internal analysis: does the retrieved context actually support an answer, what is missing, contradictory, or low-confidence — written before the final answer',
+    },
+    answer: {
+      type: 'object',
+      required: ['question', 'dataRetrieved'],
+      additionalProperties: false,
+      properties: {
+        question: {
+          type: 'string',
+          description: 'Paraphrase of the user question (rewording accepted, no need to quote verbatim)',
+        },
+        dataRetrieved: {
+          type: 'string',
+          description: 'The direct answer to the question, in prose — not a data dump. Cite sources by [n], and be critical: call out gaps, contradictions, or low confidence in the retrieved data rather than restating it at face value. This is the only field shown to the user, so it must stand alone as a complete answer.',
+        },
+      },
+    },
+  },
+}
+
 // ─── AdjustPatch schema (flat, for small-model constrained decoding) ─────────
 // Nested swap/dayStructure objects are flattened for Ollama reliability.
 // validateAdjustPatch() reshapes the flat output into the canonical AdjustPatch.
@@ -390,6 +417,7 @@ module.exports = {
   suggestSchema,
   planSchema,
   unknownSchema,
+  generateAnswerSchema,
   askSchema,
   gradeDocumentsSchema,
   rewriteQuestionSchema,

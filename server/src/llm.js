@@ -17,6 +17,7 @@ const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models'
 
 function resolveGeminiModel(provider) {
   if (provider === 'gemini-flash') return 'gemini-2.5-flash'
+  if (provider === 'gemma-31b') return 'gemma-4-31b-it'
   return process.env.GEMINI_MODEL || 'gemma-4-27b-it'
 }
 
@@ -185,7 +186,14 @@ async function generateGemini(prompt, schema, system, genOpts = {}, provider = '
   // Mirror Ollama's num_predict:256 default — Gemma has no constrained decoding
   // so without a cap it over-generates before emitting the JSON object
   const defaultMax = isGemma ? 512 : undefined
-  generationConfig.maxOutputTokens = genOpts?.maxOutputTokens ?? defaultMax
+  let maxOutputTokens = genOpts?.maxOutputTokens ?? defaultMax
+  // Gemma also has no schema enforcement, so it rambles a preamble before the
+  // JSON object. Callers tune tiny caps (16/64) assuming Ollama's constrained
+  // decoding, which emits JSON immediately — on Gemma those caps cut the
+  // response off mid-preamble, before any "{" appears, so JSON.parse always
+  // fails. Floor the cap so there's room for the preamble plus the JSON.
+  if (isGemma && maxOutputTokens != null) maxOutputTokens = Math.max(maxOutputTokens, 400)
+  generationConfig.maxOutputTokens = maxOutputTokens
   body.generationConfig = generationConfig
 
   const startedAt = Date.now()
@@ -260,9 +268,9 @@ async function preloadOllama() {
 
 async function generate(prompt, schema, system, genOpts) {
   const provider = process.env.LLM_PROVIDER || 'ollama'
-  if (provider === 'gemini' || provider === 'gemini-flash') return generateGemini(prompt, schema, system, genOpts, provider)
+  if (provider === 'gemini' || provider === 'gemini-flash' || provider === 'gemma-31b') return generateGemini(prompt, schema, system, genOpts, provider)
   if (provider === 'ollama') return generateOllama(prompt, schema, system, genOpts)
-  throw new Error(`Unknown LLM_PROVIDER: "${provider}" (expected "ollama", "gemini", or "gemini-flash")`)
+  throw new Error(`Unknown LLM_PROVIDER: "${provider}" (expected "ollama", "gemini", "gemini-flash", or "gemma-31b")`)
 }
 
 module.exports = { generate, buildTaskContext, getToday, preloadOllama, LlmProviderError }
