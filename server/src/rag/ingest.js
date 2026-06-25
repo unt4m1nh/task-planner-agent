@@ -14,7 +14,7 @@ async function ingestDocument({ source, title, content }) {
     'INSERT INTO documents (source, title, content, created_at) VALUES (?, ?, ?, ?)'
   )
   const insertChunk = db.prepare(
-    'INSERT INTO chunks (document_id, chunk_index, text) VALUES (?, ?, ?)'
+    'INSERT INTO chunks (document_id, chunk_index, text, source_type) VALUES (?, ?, ?, ?)'
   )
   const insertVec = db.prepare(
     'INSERT INTO vec_chunks (rowid, embedding) VALUES (?, ?)'
@@ -25,7 +25,7 @@ async function ingestDocument({ source, title, content }) {
       source, title, content, new Date().toISOString()
     )
     chunks.forEach((text, i) => {
-      const { lastInsertRowid: chunkId } = insertChunk.run(docId, i, text)
+      const { lastInsertRowid: chunkId } = insertChunk.run(docId, i, text, source)
       insertVec.run(BigInt(chunkId), toVecBuffer(vectors[i]))
     })
     return docId

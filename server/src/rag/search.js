@@ -11,7 +11,7 @@ async function searchDocuments(query, { topK = 5, source } = {}) {
   ).all(toVecBuffer(vector), topK * 4)
 
   const getChunk = db.prepare(`
-    SELECT chunks.id, chunks.text, chunks.chunk_index,
+    SELECT chunks.id, chunks.text, chunks.chunk_index, chunks.source_type,
            documents.id AS document_id, documents.title, documents.source, documents.created_at
     FROM chunks JOIN documents ON documents.id = chunks.document_id
     WHERE chunks.id = ?
@@ -29,6 +29,7 @@ async function searchDocuments(query, { topK = 5, source } = {}) {
       documentId: row.document_id,
       title: row.title,
       source: row.source,
+      sourceType: row.source_type,
       createdAt: row.created_at,
     })
     if (results.length >= topK) break
