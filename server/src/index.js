@@ -6,6 +6,7 @@ const { preloadOllama, LlmProviderError } = require('./llm')
 const { ingestDocument } = require('./rag/ingest')
 const { searchDocuments } = require('./rag/search')
 const { extractText } = require('./rag/extract')
+const wire = require('./adapters/wire')
 
 const MAX_UPLOAD_BYTES = 20 * 1024 * 1024
 
@@ -216,4 +217,10 @@ app.post('/api/chat', async (c) => {
 serve({ fetch: app.fetch, port: 3000 }, (info) => {
   console.log(`Server running on http://localhost:${info.port}`)
   preloadOllama()
+  wire.init().then(() => {
+    if (wire.isConfigured()) console.log('[jira] mcp-atlassian connected')
+  }).catch(err => console.warn('[jira] connect failed:', err.message))
 })
+
+process.on('SIGTERM', () => wire.shutdown().finally(() => process.exit(0)))
+process.on('SIGINT',  () => wire.shutdown().finally(() => process.exit(0)))
