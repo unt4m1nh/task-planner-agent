@@ -3,27 +3,42 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import { execSync } from 'child_process'
 import path from 'path'
 
-// Resolve uvx absolute path — required under WSL non-login shells where PATH is limited
-function resolveUvx() {
+// Resolve mcp-atlassian binary path.
+// Prefer the directly-installed tool (uv tool install mcp-atlassian) over uvx
+// so the server doesn't need PyPI access at startup.
+function resolveMcpAtlassian() {
+  // uv tool install puts the binary here
+  const direct = path.join(process.env.HOME || '/root', '.local', 'bin', 'mcp-atlassian')
+  try {
+    execSync(`test -x "${direct}"`, { stdio: 'ignore' })
+    return direct
+  } catch {}
+  // Fallback: try uvx (will download on first run, needs PyPI access)
   try {
     return execSync('which uvx', { encoding: 'utf8' }).trim()
   } catch {
-    // Fallback to common install location from the official uv installer
     return path.join(process.env.HOME || '/root', '.local', 'bin', 'uvx')
   }
 }
 
 function buildJiraEnv() {
-  const { JIRA_URL, JIRA_USERNAME, JIRA_API_TOKEN } = process.env
-  if (!JIRA_URL || !JIRA_USERNAME || !JIRA_API_TOKEN) {
-    throw new Error('Missing required env vars: JIRA_URL, JIRA_USERNAME, JIRA_API_TOKEN')
-  }
+  const { JIRA_URL, JIRA_API_TOKEN, JIRA_USERNAME, JIRA_PERSONAL_TOKEN, REQUESTS_CA_BUNDLE, SSL_CERT_FILE } = process.env
+  if (!JIRA_URL) throw new Error('Missing required env var: JIRA_URL')
+
+  // Server/DC: prefer JIRA_PERSONAL_TOKEN; fall back to JIRA_API_TOKEN
+  const pat = JIRA_PERSONAL_TOKEN || JIRA_API_TOKEN
+  if (!pat) throw new Error('Missing required env var: JIRA_PERSONAL_TOKEN (or JIRA_API_TOKEN for Server/DC)')
+
   return {
     ...process.env,
-    JIRA_URL,
-    JIRA_USERNAME,
-    JIRA_API_TOKEN,
-    // Prevent the token from leaking via debug outputs in the child process
+    JIRA_URL: JIRA_URL.trim(),
+    JIRA_PERSONAL_TOKEN: pat.trim(),
+    // Keep username/api_token in env too in case the server auto-detects Cloud
+    ...(JIRA_USERNAME && { JIRA_USERNAME: JIRA_USERNAME.trim() }),
+    ...(JIRA_API_TOKEN && { JIRA_API_TOKEN: JIRA_API_TOKEN.trim() }),
+    // Pass through corporate CA cert so mcp-atlassian can verify SSL
+    ...(REQUESTS_CA_BUNDLE && { REQUESTS_CA_BUNDLE }),
+    ...(SSL_CERT_FILE && { SSL_CERT_FILE }),
     DEBUG: '',
   }
 }
@@ -49,10 +64,11 @@ class JiraClient {
   async connect() {
     if (this._client) return
 
-    const uvxPath = resolveUvx()
+    const bin = resolveMcpAtlassian()
+    const isMcpAtlassianDirect = bin.endsWith('mcp-atlassian')
     this._transport = new StdioClientTransport({
-      command: uvxPath,
-      args: ['mcp-atlassian'],
+      command: bin,
+      args: isMcpAtlassianDirect ? [] : ['--system-certs', 'mcp-atlassian'],
       env: buildJiraEnv(),
     })
 

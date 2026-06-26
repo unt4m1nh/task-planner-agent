@@ -10,23 +10,30 @@ function getClient() {
   return _clientPromise
 }
 
-// Normalize raw Jira issue shape → JiraIssue (see types.js)
+// Normalize raw Jira issue shape → JiraIssue (see types.js).
+// mcp-atlassian returns different shapes per operation:
+//   search/get  → flat issue object
+//   create      → { message, issue: { ... } }
 function normalizeIssue(raw) {
   if (!raw) return null
-  const fields = raw.fields || {}
+  // Unwrap create response: { message, issue }
+  const src = raw.issue || raw
+  // Support both flat (mcp-atlassian) and nested (.fields) shapes
+  const f = src.fields || src
+  const key = src.key || f.key || ''
   return {
-    id: raw.id,
-    key: raw.key,
-    summary: fields.summary || '',
-    description: fields.description?.content?.[0]?.content?.[0]?.text ?? fields.description ?? null,
-    status: fields.status?.name || '',
-    issueType: fields.issuetype?.name || '',
-    priority: fields.priority?.name || null,
-    assignee: fields.assignee?.displayName || null,
-    dueDate: fields.duedate || null,
-    createdAt: fields.created || '',
-    updatedAt: fields.updated || '',
-    url: raw.self ? `${process.env.JIRA_URL}/browse/${raw.key}` : '',
+    id: src.id || f.id || '',
+    key,
+    summary: f.summary || '',
+    description: f.description?.content?.[0]?.content?.[0]?.text ?? (typeof f.description === 'string' ? f.description : null),
+    status: f.status?.name || f.status?.category || '',
+    issueType: f.issue_type?.name || f.issuetype?.name || '',
+    priority: f.priority?.name || null,
+    assignee: f.assignee?.display_name || f.assignee?.displayName || null,
+    dueDate: f.due_date || f.duedate || null,
+    createdAt: f.created || '',
+    updatedAt: f.updated || '',
+    url: `${(process.env.JIRA_URL || '').trim()}/browse/${key}`,
   }
 }
 
@@ -64,8 +71,8 @@ async function createIssue(fields) {
   const args = {
     project_key: fields.projectKey,
     summary: fields.summary,
-    issue_type: fields.issueType || 'Task',
-    ...(fields.description && { description: fields.description }),
+    issue_type: fields.issueType || 'Story',
+    description: fields.description || fields.summary,
     ...(fields.priority && { priority: fields.priority }),
     ...(fields.assignee && { assignee: fields.assignee }),
   }
@@ -80,13 +87,13 @@ async function createIssue(fields) {
  */
 async function updateIssue(id, fields) {
   const client = await getClient()
-  const args = {
-    issue_key: id,
+  const fieldUpdates = {
     ...(fields.summary && { summary: fields.summary }),
     ...(fields.description && { description: fields.description }),
-    ...(fields.priority && { priority: fields.priority }),
-    ...(fields.assignee && { assignee: fields.assignee }),
+    ...(fields.priority && { priority: { name: fields.priority } }),
+    ...(fields.assignee && { assignee: { name: fields.assignee } }),
   }
+  const args = { issue_key: id, fields: JSON.stringify(fieldUpdates) }
   const result = await client.callTool('jira_update_issue', args)
   return normalizeIssue(result)
 }

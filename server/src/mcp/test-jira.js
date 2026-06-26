@@ -11,9 +11,9 @@ async function run() {
   await jira.init()
   console.log('Connected.\n')
 
-  // 1. Search
+  // 1. Search — list issues assigned to current user
   console.log('── jira.searchIssues ──')
-  const issues = await jira.searchIssues('project = WIRE ORDER BY created DESC')
+  const issues = await jira.searchIssues('assignee = currentUser() ORDER BY created DESC')
   console.log(`Found ${issues.length} issue(s)`)
   if (issues.length > 0) console.log('First:', JSON.stringify(issues[0], null, 2))
 
@@ -25,12 +25,14 @@ async function run() {
     console.log(JSON.stringify(issue, null, 2))
   }
 
-  // 3. Create throwaway
-  console.log('\n── jira.createIssue ──')
+  // 3. Create throwaway — use the project of the first found issue, or a known default
+  const projectKey = issues[0]?.key?.split('-')[0] || 'DP05210911'
+  console.log(`\n── jira.createIssue (project: ${projectKey}) ──`)
+  const issueType = issues[0]?.issueType || 'Story'
   const created = await jira.createIssue({
-    projectKey: 'WIRE',
+    projectKey,
     summary: '[test] mcp-jira P1 smoke test — delete me',
-    issueType: 'Task',
+    issueType,
     description: 'Auto-created by test-jira.js to validate the MCP wrapper end-to-end.',
   })
   console.log('Created:', JSON.stringify(created, null, 2))

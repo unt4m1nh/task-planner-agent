@@ -5,21 +5,27 @@
 
 ## Status enum → Transition ID
 
+Captured from `jira_get_transitions` on project `DP05210911` (LG Ecommerce).
+Transition IDs are project-specific — verify for other projects before using.
+
 | Our status | WIRE transition name | Transition ID |
 |------------|----------------------|---------------|
-| `todo` | To Do / Backlog | TODO |
-| `in_progress` | In Progress / Start | TODO |
-| `done` | Done / Close | TODO |
+| `in_progress` | Start Dev | 11 |
+| `done` | Finish Dev | 31 |
+
+> `todo` (Open) is the default state on creation — no transition needed.
 
 ## Raw transition response
 
-> TODO: paste the full JSON from `jira_get_transitions` on a WIRE issue here.
-
 ```json
-{}
+[
+  { "id": 11, "name": "Start Dev" },
+  { "id": 31, "name": "Finish Dev" }
+]
 ```
 
 ## Notes
 
-- Record any statuses in the WIRE workflow that don't map cleanly to our enum.
-- Note which transitions require a specific source status (guards).
+- Transition IDs differ per project. Always call `jira_get_transitions` on a real issue before hardcoding IDs.
+- `Open` → `Start Dev` (11) → `Finish Dev` (31) is the only workflow observed on `DP05210911`.
+- No guard was encountered for back-transitions in this project.
