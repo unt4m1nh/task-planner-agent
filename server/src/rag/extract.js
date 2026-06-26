@@ -21,7 +21,8 @@ async function extractText(buffer, filename) {
   const ext = (filename || '').toLowerCase().split('.').pop()
   if (ext === 'pdf') return extractPdf(buffer)
   if (ext === 'docx') return extractDocx(buffer)
-  throw new Error(`unsupported file type "${ext}" — only .pdf and .docx are supported`)
+  if (ext === 'txt' || ext === 'md') return buffer.toString('utf8')
+  throw new Error(`unsupported file type "${ext}" — only .pdf, .docx, .txt, and .md are supported`)
 }
 
 module.exports = { extractText }

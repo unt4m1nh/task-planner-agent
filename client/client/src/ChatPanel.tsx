@@ -534,7 +534,7 @@ export default function ChatPanel({ onSchedule }: { onSchedule?: (s: Schedule) =
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".pdf,.docx"
+                accept=".pdf,.docx,.txt,.md"
                 hidden
                 onChange={handleFileSelected}
               />
