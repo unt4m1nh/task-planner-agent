@@ -1,0 +1,75 @@
+Daily plan for 2026-06-22 (09:00-17:00):
+
+09:00-10:30 Fix login bug
+10:30-10:45 break
+10:45-12:15 Write RAG docs
+12:15-13:00 break
+13:00-14:30 Review PR #482
+14:30-16:00 Sync WIRE adapter with new MCP schema
+16:00-17:00 Update CLAUDE.md for planner changes
+
+Dropped (did not fit):
+- Refactor auth middleware
+- Investigate Gemini schema edge cases
+
+---
+
+Daily plan for 2026-06-23 (09:00-13:00):
+
+09:00-10:00 Fix login bug (partial)
+10:00-10:15 break
+10:15-12:00 Write RAG docs
+12:00-13:00 Review PR #482 (partial)
+
+Dropped (did not fit):
+- Sync WIRE adapter with new MCP schema
+- Update CLAUDE.md for planner changes
+- Investigate Gemini schema edge cases
+
+---
+
+Daily plan for 2026-06-24 (13:00-17:00):
+
+13:00-14:00 Review PR #482
+14:00-14:15 break
+14:15-15:45 Investigate Gemini schema edge cases
+15:45-17:00 Refactor auth middleware (partial)
+
+Dropped (did not fit):
+- Update CLAUDE.md for planner changes
+
+---
+
+Daily plan for 2026-06-25 (09:00-17:00):
+
+09:00-10:30 Fix login bug
+10:30-10:45 break
+10:45-12:00 Write RAG docs (partial)
+
+Dropped (did not fit):
+- Refactor auth middleware
+
+---
+
+Daily plan for 2026-06-26 (09:14-13:14):
+
+09:14-10:00 Sync WIRE adapter with new MCP schema
+10:00-10:10 break
+10:10-11:40 Update CLAUDE.md for planner changes
+11:40-13:14 Investigate Gemini schema edge cases (partial)
+
+---
+
+Daily plan for 2026-06-27 (09:00-17:00):
+
+09:00-10:30 Refactor auth middleware
+10:30-10:45 break
+10:45-12:15 Fix login bug
+12:15-13:00 break
+13:00-14:30 Write RAG docs
+14:30-16:00 Review PR #482
+16:00-17:00 Sync WIRE adapter with new MCP schema
+
+Dropped (did not fit):
+- Update CLAUDE.md for planner changes
+- Investigate Gemini schema edge cases

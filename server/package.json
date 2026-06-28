@@ -6,9 +6,11 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "node --watch-path=src --watch src/index.js",
-    "test": "node --test src/agent/scheduling/scheduler.test.mjs",
+    "test": "node --test src/agent/scheduling/scheduler.test.mjs src/rag/chunking/*.test.mjs src/rag/*.test.mjs",
     "mcp:discover": "node src/adapters/discover.js",
-    "rag:inspect": "node src/rag/inspect.js"
+    "rag:inspect": "node src/rag/inspect.js",
+    "rag:compare": "node src/rag/scripts/compare-chunking.js",
+    "rag:reingest": "node src/rag/scripts/reingest-documents.js"
   },
   "keywords": [],
   "author": "",

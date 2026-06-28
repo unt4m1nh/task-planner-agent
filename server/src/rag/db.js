@@ -7,14 +7,17 @@ const DB_PATH = path.resolve(__dirname, '../../../rag.db')
 
 let db
 
-function getDb() {
-  if (db) return db
+// dbPath is only for the chunking comparison script, which needs a throwaway
+// SQLite file so it never touches the real corpus. Production code calls
+// getDb() with no args and always gets the cached singleton at DB_PATH.
+function getDb(dbPath = DB_PATH) {
+  if (dbPath === DB_PATH && db) return db
 
-  db = new Database(DB_PATH)
-  sqliteVec.load(db)
-  db.pragma('journal_mode = WAL')
+  const instance = new Database(dbPath)
+  sqliteVec.load(instance)
+  instance.pragma('journal_mode = WAL')
 
-  db.exec(`
+  instance.exec(`
     CREATE TABLE IF NOT EXISTS documents (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       source TEXT NOT NULL,
@@ -28,10 +31,13 @@ function getDb() {
       document_id INTEGER NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
       chunk_index INTEGER NOT NULL,
       text TEXT NOT NULL,
-      source_type TEXT
+      source_type TEXT,
+      strategy TEXT NOT NULL DEFAULT 'fixed_size',
+      parent_id INTEGER REFERENCES chunks(id),
+      is_parent INTEGER NOT NULL DEFAULT 0
     );
   `)
-  db.exec(`
+  instance.exec(`
     CREATE VIRTUAL TABLE IF NOT EXISTS vec_chunks USING vec0(
       embedding float[${EMBED_DIM}]
     );
@@ -39,17 +45,32 @@ function getDb() {
 
   // chunks created before source_type existed won't have the column on older
   // db files — add it and backfill from documents.source.
-  const hasSourceType = db.prepare("SELECT 1 FROM pragma_table_info('chunks') WHERE name = 'source_type'").get()
+  const hasSourceType = instance.prepare("SELECT 1 FROM pragma_table_info('chunks') WHERE name = 'source_type'").get()
   if (!hasSourceType) {
-    db.exec('ALTER TABLE chunks ADD COLUMN source_type TEXT')
+    instance.exec('ALTER TABLE chunks ADD COLUMN source_type TEXT')
   }
-  db.exec(`
+  instance.exec(`
     UPDATE chunks SET source_type = (
       SELECT documents.source FROM documents WHERE documents.id = chunks.document_id
     ) WHERE source_type IS NULL
   `)
 
-  return db
+  // adaptive-chunking columns — older db files predate these; ALTER TABLE with a
+  // non-null DEFAULT backfills existing rows to the pre-adaptive-chunking behavior
+  // (every row was effectively a fixed_size cut, no parent/child relationship).
+  const hasColumn = name => instance.prepare("SELECT 1 FROM pragma_table_info('chunks') WHERE name = ?").get(name)
+  if (!hasColumn('strategy')) {
+    instance.exec("ALTER TABLE chunks ADD COLUMN strategy TEXT NOT NULL DEFAULT 'fixed_size'")
+  }
+  if (!hasColumn('parent_id')) {
+    instance.exec('ALTER TABLE chunks ADD COLUMN parent_id INTEGER REFERENCES chunks(id)')
+  }
+  if (!hasColumn('is_parent')) {
+    instance.exec('ALTER TABLE chunks ADD COLUMN is_parent INTEGER NOT NULL DEFAULT 0')
+  }
+
+  if (dbPath === DB_PATH) db = instance
+  return instance
 }
 
 function toVecBuffer(vector) {
