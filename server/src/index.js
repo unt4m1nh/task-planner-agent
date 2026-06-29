@@ -6,7 +6,14 @@ const { preloadOllama, LlmProviderError } = require('./llm')
 const { ingestDocument } = require('./rag/ingest')
 const { searchDocuments } = require('./rag/search')
 const { extractText } = require('./rag/extract')
+const store = require('./store')
 const wire = require('./adapters/wire')
+
+let _guardrails
+async function getGuardrails() {
+  if (!_guardrails) _guardrails = await import('./agent/guardrails.mjs')
+  return _guardrails
+}
 
 const MAX_UPLOAD_BYTES = 20 * 1024 * 1024
 
@@ -160,12 +167,17 @@ app.post('/api/chat', async (c) => {
 
   const { Command } = await import('@langchain/langgraph')
   const { tracingEnabled } = await import('langsmith/client')
+  const { checkInput, checkOutput } = await getGuardrails()
   const graph = await getGraph()
   const tid = threadId ?? crypto.randomUUID()
   const config = { configurable: { thread_id: tid } }
 
   let input
   if (resume !== undefined) {
+    const inputCheck = checkInput(typeof resume === 'string' ? resume : String(resume))
+    if (!inputCheck.ok) {
+      return c.json({ ok: true, threadId: tid, response: inputCheck.userMessage })
+    }
     input = new Command({ resume })
   } else {
     if (!Array.isArray(messages) || !messages.length) {
@@ -174,6 +186,11 @@ app.post('/api/chat', async (c) => {
     const lastMsg = messages[messages.length - 1]?.content ?? ''
     if (typeof lastMsg !== 'string' || !lastMsg.trim()) {
       return c.json({ ok: false, error: 'last message content must be a non-empty string' }, 400)
+    }
+
+    const inputCheck = checkInput(lastMsg)
+    if (!inputCheck.ok) {
+      return c.json({ ok: true, threadId: tid, response: inputCheck.userMessage })
     }
 
     // Slash fast-path: inject plannerSlots, skip route model call
@@ -202,6 +219,18 @@ app.post('/api/chat', async (c) => {
   }
 
   const r = stateValues.result ?? {}
+
+  // Output groundedness check — only applied to RAG answers (LLM-generated free text).
+  // Todo/planner responses are code-constructed from store data and are always grounded.
+  const allTaskIds = r.intent === 'ask'
+    ? new Set(store.readTasks().map(t => t.id))
+    : null
+  const outputCheck = checkOutput(r, { allTaskIds })
+  if (!outputCheck.ok) {
+    console.warn('[POST /api/chat] output guardrail fired:', outputCheck.code)
+    return c.json({ ok: true, threadId: tid, response: outputCheck.userMessage })
+  }
+
   return c.json({
     ok: true,
     threadId: tid,

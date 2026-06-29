@@ -4,6 +4,7 @@ import { readFileSync } from 'fs'
 import path from 'path'
 import { interrupt } from '@langchain/langgraph'
 import { lastUserMsg, agentLog, fmtPlanText } from './utils.mjs'
+import { checkSchedule } from '../guardrails.mjs'
 
 const require = createRequire(import.meta.url)
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -130,6 +131,12 @@ async function runGenerate(state, allTasks) {
 
   agentLog('planner_plan', { via: 'generate', tasks: ranked.length, blocks: sched.blocks.length, dropped: sched.dropped.length })
 
+  const schedCheck = checkSchedule(enriched)
+  if (!schedCheck.ok) {
+    agentLog('planner_plan', { selfCheck: schedCheck.code })
+    return { result: { intent: 'plan', response: schedCheck.userMessage } }
+  }
+
   return {
     pendingAction: { type: 'review', planResult: { text: planText, schedule: enriched } },
     sessionContext: {
@@ -222,6 +229,12 @@ async function runAdjust(state, allTasks) {
   const planText2 = fmtPlanText(enriched2)
 
   agentLog('planner_plan', { via: 'adjust', levers: Object.keys(patch), blocks: sched2.blocks.length, dropped: sched2.dropped.length })
+
+  const schedCheck = checkSchedule(enriched2)
+  if (!schedCheck.ok) {
+    agentLog('planner_plan', { selfCheck: schedCheck.code })
+    return { result: { intent: 'plan', response: schedCheck.userMessage } }
+  }
 
   return {
     pendingAction: { type: 'review', planResult: { text: planText2, schedule: enriched2 } },

@@ -1,8 +1,5 @@
-import { createRequire } from 'module'
 import { END } from '@langchain/langgraph'
-
-const require = createRequire(import.meta.url)
-const { MAX_REWRITES } = require('../../rag/agentic.js')
+import { CONFIG } from '../guardrails.mjs'
 
 export function afterRouter(state) {
   if (state.route === 'todo') return 'todo_understand'
@@ -42,6 +39,6 @@ export function afterPlannerPlanReview(state) {
 
 export function afterRagGrade(state) {
   const { relevant, attempts = 0 } = state.ragSlots
-  if (relevant || attempts >= MAX_REWRITES) return 'rag_generate'
+  if (relevant || attempts >= CONFIG.steps.MAX_ITERATIONS) return 'rag_generate'
   return 'rag_rewrite'
 }
