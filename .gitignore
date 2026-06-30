@@ -2,3 +2,8 @@
 rag.db
 rag.db-shm
 rag.db-wal
+
+# Chat history turns store (local, regenerable)
+history.db
+history.db-shm
+history.db-wal

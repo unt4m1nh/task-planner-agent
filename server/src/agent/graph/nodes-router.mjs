@@ -19,6 +19,21 @@ function looksLikePlanFeedback(msg, slots) {
   return false
 }
 
+// Composes a follow-up's new filter fields onto the prior turn's list filter —
+// minimal model responsibility: the model only extracts what's NEW, code binds
+// it to the real prior state (agent/history/DECISIONS.md, "continuation").
+const LIST_FILTER_FIELDS = ['status', 'priority', 'source', 'tags', 'query']
+
+function mergeListFilter(prevFilter, slots) {
+  const merged = { ...(prevFilter || {}) }
+  for (const field of LIST_FILTER_FIELDS) {
+    if (slots[field] !== undefined) merged[field] = slots[field]
+  }
+  return merged
+}
+
+export { mergeListFilter, looksLikePlanFeedback }
+
 export async function routerNode(state) {
   const ctx = state.sessionContext || {}
   const turnCount = (ctx.turnCount ?? 0) + 1
@@ -34,7 +49,7 @@ export async function routerNode(state) {
   }
 
   const msg = lastUserMsg(state)
-  const classified = await classify(msg)
+  const classified = await classify(msg, { historyWindow: state.historyWindow })
 
   if (TODO_INTENTS.has(classified.intent)) {
     // If the user has an active plan and the message reads as schedule feedback
@@ -52,10 +67,20 @@ export async function routerNode(state) {
       }
     }
 
+    // Follow-up filter composition (e.g. "what about the high-priority ones?"):
+    // the model recognises continuation from the window and extracts only the
+    // NEW filter fields; code merges them onto the prior turn's list filter.
+    let todoSlots = classified
+    if (classified.intent === 'list' && classified.continuation && ctx.lastListFilter) {
+      const merged = mergeListFilter(ctx.lastListFilter, classified)
+      todoSlots = { ...classified, ...merged }
+      agentLog('router', { route: 'todo', via: 'continuation-filter-merge', prevFilter: ctx.lastListFilter, mergedFilter: merged, turn: turnCount })
+    }
+
     agentLog('router', { route: 'todo', intent: classified.intent, turn: turnCount, msg })
     return {
       route: 'todo',
-      todoSlots: classified,
+      todoSlots,
       plannerSlots: null,
       result: null,
       pendingAction: null,

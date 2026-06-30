@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "node --watch-path=src --watch src/index.js",
-    "test": "node --test src/agent/scheduling/scheduler.test.mjs src/rag/chunking/*.test.mjs src/rag/*.test.mjs",
+    "test": "node --test src/agent/scheduling/scheduler.test.mjs src/agent/history/*.test.mjs src/agent/graph/*.test.mjs src/rag/chunking/*.test.mjs src/rag/*.test.mjs",
     "mcp:discover": "node src/adapters/discover.js",
     "rag:inspect": "node src/rag/inspect.js",
     "rag:compare": "node src/rag/scripts/compare-chunking.js",

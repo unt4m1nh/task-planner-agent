@@ -85,7 +85,7 @@ export async function todoExecute(state) {
   const rawQuery = [slots.query, ...(tags || [])].filter(Boolean).join(' ')
   const query = sanitizeQuery(rawQuery)
 
-  let response, tasks
+  let response, tasks, sessionContextPatch
 
   switch (type) {
     case 'list': {
@@ -97,6 +97,9 @@ export async function todoExecute(state) {
       if (!all.length) { response = 'No tasks found.'; break }
       response = `${all.length} task(s):\n` + all.map(fmt).join('\n')
       tasks = all
+      // Remembered so a follow-up ("what about the high-priority ones?") can
+      // compose its new filter onto this one — see nodes-router.mjs mergeListFilter.
+      sessionContextPatch = { lastListFilter: { status, priority, source, tags, query: slots.query } }
       break
     }
 
@@ -180,5 +183,8 @@ export async function todoExecute(state) {
   }
 
   agentLog('todo_execute', { intent: type, id, title, response })
-  return { result: { intent: type, response, ...(tasks ? { tasks } : {}) } }
+  return {
+    result: { intent: type, response, ...(tasks ? { tasks } : {}) },
+    ...(sessionContextPatch ? { sessionContext: sessionContextPatch } : {}),
+  }
 }

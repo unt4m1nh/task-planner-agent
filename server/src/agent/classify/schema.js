@@ -214,6 +214,10 @@ const ollamaSchema = {
   required: ['intent'],
   properties: {
     intent: { type: 'string', enum: ['list', 'read', 'add', 'edit', 'delete', 'reorder', 'suggest', 'plan', 'ask', 'unknown'] },
+    continuation: {
+      type: 'boolean',
+      description: 'true if this message is a follow-up to the recent conversation (e.g. "what about the high-priority ones?") rather than a standalone request',
+    },
     id: { type: 'string' },
     title: { type: 'string' },
     description: { type: 'string' },

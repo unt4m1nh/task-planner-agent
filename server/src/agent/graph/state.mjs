@@ -12,6 +12,7 @@ export const AgentState = Annotation.Root({
   pendingAction: Annotation(),
   result: Annotation(),
   sessionContext: Annotation({ reducer: mergeContext, default: () => null }),
+  historyWindow: Annotation(),   // text of the last N turns from the history store, for classify()
 })
 
 // Flip any entry to true to gate that node behind a human review.
