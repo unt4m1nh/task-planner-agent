@@ -51,7 +51,14 @@ Examples:
 IMPORTANT: Always extract filter slots when the user specifies status, priority, source, tags, or a keyword.
 Never omit a filter the user mentioned. Only omit "query" for generic words like "tasks", "all", "my".
 Use "tags" when the user says "tagged X" or "with tag X". For general topic keywords, prefer "query".
-For suggest: mood must be one of "tired", "energetic", "neutral". Preference must be one of "quick", "important", "due_soon".`
+For suggest: mood must be one of "tired", "energetic", "neutral". Preference must be one of "quick", "important", "due_soon".
+
+If RECENT CONVERSATION is shown below, set "continuation": true when the message only makes sense
+as a follow-up to it (e.g. it refers back with "those", "the high-priority ones", "what about X"
+without restating the full request). Extract only the NEW slots the message adds — do not repeat
+slots already implied by the earlier turn, the orchestrator merges them in code.
+- Recent conversation: "User: show me my todo tasks\nAssistant: 5 task(s): ..."
+  Message: "what about the high-priority ones?"  → {"intent":"list","priority":"high","continuation":true}`
 
 // ─── JSON extraction ─────────────────────────────────────────────────────────
 // Models without constrained decoding (e.g. Gemma via Google API) may wrap JSON
@@ -122,7 +129,7 @@ function validate(parsed) {
 
 // ─── build prompt ─────────────────────────────────────────────────────────────
 
-function buildPrompt(userMessage, previousError) {
+function buildPrompt(userMessage, previousError, historyWindow) {
   const context = buildTaskContext()
 
   const lines = [
@@ -133,6 +140,10 @@ function buildPrompt(userMessage, previousError) {
     '=== END CONTEXT ===',
     '',
   ]
+
+  if (historyWindow) {
+    lines.push('=== RECENT CONVERSATION ===', historyWindow, '=== END RECENT CONVERSATION ===', '')
+  }
 
   if (previousError) {
     lines.push(`Previous attempt failed validation: ${previousError}`)
@@ -147,12 +158,12 @@ function buildPrompt(userMessage, previousError) {
 
 // ─── classify ─────────────────────────────────────────────────────────────────
 
-async function classify(userMessage) {
+async function classify(userMessage, { historyWindow } = {}) {
   let lastError = null
 
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     // 1. call model
-    const prompt = buildPrompt(userMessage, lastError)
+    const prompt = buildPrompt(userMessage, lastError, historyWindow)
     let raw
     try {
       raw = await generate(prompt, ollamaSchema)

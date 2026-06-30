@@ -74,6 +74,7 @@ There is **no** `GET /api/tasks` endpoint. The frontend communicates only via `P
 - `/daily-planner [9-17 | 09:00-17:00 | 4h | 240m]` — slash command; parsed by `parseDailyPlanner()` in `index.js` and injected as `plannerSlots` into graph state, bypassing the route model call
 - `POST /api/rag/documents` — `{ title, content, source? }` → chunks, embeds (Ollama `bge-m3`), stores in `rag.db`; returns `{ documentId, chunkCount }`
 - `POST /api/rag/search` — `{ query, topK?, source? }` → embeds query, vec0 KNN search, returns nearest chunks with `{ text, distance, title, source, ... }`
+- `GET /api/sessions` — list persisted chat sessions: `{ sessionId, title, createdAt, updatedAt, turnCount }[]`, most recently updated first; read-only, no HITL gate
 
 ## Design decisions (read before modifying)
 
@@ -153,6 +154,10 @@ server/src/
       schema.js      JSON Schema per intent, enforced via Ollama `format`
       classify.js    build prompt → call model → parse → validate → retry → fallback
       contract.js    validateTodoSlots, isDestructive, describeAction (node entry guards)
+    history/
+      db.mjs         opens history.db (repo root), creates sessions/turns tables + index
+      store.mjs      createSession/getOrCreateSession/addTurn/getRecentTurns/listSessions/getSessionResolvedContext
+      config.mjs     windowSize, content/title length caps
     graph/
       graph.mjs      LangGraph StateGraph — AgentState, all nodes, edges, SqliteSaver checkpointer
       state.mjs      AgentState Annotation.Root, HITL config map
@@ -171,6 +176,7 @@ server/src/
       plan-day/SKILL.md       scheduling algorithm spec for the plan intent (loaded as LLM system prompt)
       adjust-plan/SKILL.md    plan-adjustment spec for the planner ADJUST flow (loaded as LLM system prompt)
 checkpoints.db       SqliteSaver database (created on first run, gitignored)
+history.db           turns store database (created on first run, gitignored)
 client/client/src/
   App.tsx            root layout: <Sidebar /> + <ChatPanel />
   ChatPanel.tsx      chat thread UI — threadId persistence, clarify/approve HITL widgets
@@ -236,11 +242,35 @@ MCP_QUERY=      # optional filter for which issues to sync
 - **vec0 rowid quirk**: `vec0` requires the `rowid` bind param to be a `BigInt`, not a plain JS number, or better-sqlite3 throws "Only integers are allowed for primary key values" — see `toVecBuffer`/`insertVec.run(BigInt(chunkId), ...)` in `ingest.js`.
 - This is retrieval infrastructure only — nothing currently injects search results into chat prompts; that's a separate integration if/when needed.
 
+## Conversation history store
+
+`src/agent/history/` is a dedicated, persisted, human-readable turns log — separate from both
+the LangGraph checkpointer (`checkpoints.db`, internal graph/HITL replay state) and
+`sessionContext` (durable per-thread resolved state, e.g. `lastListFilter`). See
+`agent/history/DECISIONS.md` for full reasoning.
+
+- **Storage**: `history.db` at repo root (gitignored), `better-sqlite3` — a third dedicated
+  SQLite file, alongside `rag.db` and `checkpoints.db`, one per concern.
+- **Schema**: `sessions` (`session_id` == the chat `threadId`, `title` derived from the first
+  user turn, `updated_at` bumped per turn) and `turns` (`role`, `content`, `intent`,
+  `resolved_context` JSON — a small snapshot of `sessionContext`, only on assistant turns).
+- **Module**: ESM (`.mjs`), lazy-imported from the CommonJS `index.js` via `await import()`
+  (same pattern as `agent/guardrails.mjs`), and importable directly by ESM graph nodes.
+- **Orchestrator flow**: per `/api/chat` call (fresh or resume), `index.js` fetches the last
+  `windowSize` turns (`agent/history/config.mjs`) *before* invoking the graph, puts the
+  formatted text on `state.historyWindow`, and persists one user turn + one assistant turn
+  *after* the graph completes (skipped on guardrail-blocked turns — see DECISIONS.md).
+- **Follow-up resolution**: `classify()` injects `historyWindow` into the prompt and can set
+  `continuation: true` on its output (`classify/schema.js`). `routerNode` then merges a
+  continuation's new filter fields onto `sessionContext.lastListFilter` (`mergeListFilter` in
+  `nodes-router.mjs`) — e.g. "what about the high-priority ones?" composes onto whatever filter
+  the previous `list` turn used, in code, not by re-prompting the model with the old filter.
+
 ## LangGraph control plane (Phase 2)
 
 The agent runs inside a LangGraph `StateGraph` (`agent/graph/graph.mjs`, ESM). The server stays CommonJS — the graph is loaded via a single `import()` at startup and cached.
 
-**State** (`AgentState`): `messages` (append-reducer), `route`, `todoSlots`, `plannerSlots`, `tasks`, `pendingAction`, `result`.
+**State** (`AgentState`): `messages` (append-reducer), `route`, `todoSlots`, `plannerSlots`, `ragSlots`, `tasks`, `pendingAction`, `result`, `sessionContext` (merge-reducer — durable per-thread resolved state: `activeRoute`, `activeIntent`, `lastListFilter`, planner's `lastPlanText`/`lastSchedule`/etc.), `historyWindow` (text of the last N turns from the turns store, fed to `classify()`).
 
 **HITL**: `interrupt()` pauses the graph at `todo_confirm`, `todo_clarify`, `router_clarify`, `reorder_confirm`, and `planner_overload_review`. The handler detects `result.__interrupt__[0].value` and returns `{ awaitingInput }` to the client. The client resumes with `{ resume, threadId }`.
 

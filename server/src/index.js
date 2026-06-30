@@ -15,6 +15,17 @@ async function getGuardrails() {
   return _guardrails
 }
 
+let _history
+async function getHistory() {
+  if (!_history) _history = await import('./agent/history/store.mjs')
+  return _history
+}
+let _historyConfig
+async function getHistoryConfig() {
+  if (!_historyConfig) _historyConfig = (await import('./agent/history/config.mjs')).default
+  return _historyConfig
+}
+
 const MAX_UPLOAD_BYTES = 20 * 1024 * 1024
 
 const app = new Hono()
@@ -154,6 +165,16 @@ app.post('/api/rag/search', async (c) => {
   }
 })
 
+// resolved_context persisted on the assistant turn — small and structured
+// (ids/filters), never whole tasks/schedules. This is the warm-cache rebuild
+// path for sessionContext after a process restart (see agent/history/DECISIONS.md).
+function pickResolvedContext(sessionContext) {
+  if (!sessionContext) return null
+  const { activeRoute, activeIntent, lastListFilter, lastSchedule } = sessionContext
+  if (!activeRoute && !activeIntent && !lastListFilter) return null
+  return { activeRoute, activeIntent, lastListFilter: lastListFilter || null, hasPlan: !!lastSchedule }
+}
+
 // POST /api/chat
 // Fresh turn:  { messages: [{role:"user", content:"..."}], threadId? }
 // Resume turn: { resume: "approve"|"reject"|"<text>", threadId }
@@ -169,16 +190,23 @@ app.post('/api/chat', async (c) => {
   const { tracingEnabled } = await import('langsmith/client')
   const { checkInput, checkOutput } = await getGuardrails()
   const graph = await getGraph()
+  const history = await getHistory()
+  const historyConfig = await getHistoryConfig()
   const tid = threadId ?? crypto.randomUUID()
   const config = { configurable: { thread_id: tid } }
 
-  let input
+  history.getOrCreateSession(tid)
+  const window = history.getRecentTurns(tid, historyConfig.windowSize)
+  const historyWindow = history.formatWindowText(window)
+
+  let input, userContent
   if (resume !== undefined) {
-    const inputCheck = checkInput(typeof resume === 'string' ? resume : String(resume))
+    userContent = typeof resume === 'string' ? resume : JSON.stringify(resume)
+    const inputCheck = checkInput(userContent)
     if (!inputCheck.ok) {
       return c.json({ ok: true, threadId: tid, response: inputCheck.userMessage })
     }
-    input = new Command({ resume })
+    input = new Command({ resume, update: { historyWindow } })
   } else {
     if (!Array.isArray(messages) || !messages.length) {
       return c.json({ ok: false, error: 'messages (non-empty array) is required for a fresh turn' }, 400)
@@ -187,6 +215,7 @@ app.post('/api/chat', async (c) => {
     if (typeof lastMsg !== 'string' || !lastMsg.trim()) {
       return c.json({ ok: false, error: 'last message content must be a non-empty string' }, 400)
     }
+    userContent = lastMsg
 
     const inputCheck = checkInput(lastMsg)
     if (!inputCheck.ok) {
@@ -196,8 +225,8 @@ app.post('/api/chat', async (c) => {
     // Slash fast-path: inject plannerSlots, skip route model call
     const plannerSlots = parseDailyPlanner(lastMsg.trim())
     input = plannerSlots
-      ? { messages, plannerSlots }
-      : { messages }
+      ? { messages, plannerSlots, historyWindow }
+      : { messages, historyWindow }
   }
 
   let stateValues
@@ -215,6 +244,9 @@ app.post('/api/chat', async (c) => {
   const interrupted = stateValues.__interrupt__?.[0]?.value
   if (interrupted) {
     const status = interrupted.kind === 'clarify' ? 202 : 200
+    const assistantContent = interrupted.question || interrupted.summary || JSON.stringify(interrupted)
+    history.addTurn(tid, 'user', userContent)
+    history.addTurn(tid, 'assistant', assistantContent, { resolvedContext: pickResolvedContext(stateValues.sessionContext) })
     return c.json({ ok: true, threadId: tid, awaitingInput: interrupted }, status)
   }
 
@@ -231,6 +263,12 @@ app.post('/api/chat', async (c) => {
     return c.json({ ok: true, threadId: tid, response: outputCheck.userMessage })
   }
 
+  history.addTurn(tid, 'user', userContent, { intent: r.intent || null })
+  history.addTurn(tid, 'assistant', r.response ?? '', {
+    intent: r.intent || null,
+    resolvedContext: pickResolvedContext(stateValues.sessionContext),
+  })
+
   return c.json({
     ok: true,
     threadId: tid,
@@ -241,6 +279,13 @@ app.post('/api/chat', async (c) => {
     ...(r.schedule ? { schedule: r.schedule } : {}),
     ...(r.sources  ? { sources:  r.sources  } : {}),
   })
+})
+
+// GET /api/sessions — list existing sessions (id, title, updated_at, turn count).
+// Read-only — no HITL gate, per the project's "no HITL on read-only paths" rule.
+app.get('/api/sessions', async (c) => {
+  const history = await getHistory()
+  return c.json({ ok: true, sessions: history.listSessions() })
 })
 
 serve({ fetch: app.fetch, port: 3000 }, (info) => {
