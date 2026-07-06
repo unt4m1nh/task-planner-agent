@@ -3,7 +3,7 @@ import { fileURLToPath } from 'url'
 import { readFileSync } from 'fs'
 import path from 'path'
 import { interrupt } from '@langchain/langgraph'
-import { lastUserMsg, agentLog, fmtPlanText } from './utils.mjs'
+import { lastUserMsg, agentLog, fmtPlanText, obsLog } from './utils.mjs'
 import { checkSchedule } from '../guardrails.mjs'
 
 const require = createRequire(import.meta.url)
@@ -130,10 +130,20 @@ async function runGenerate(state, allTasks) {
   const planText = fmtPlanText(enriched)
 
   agentLog('planner_plan', { via: 'generate', tasks: ranked.length, blocks: sched.blocks.length, dropped: sched.dropped.length })
+  obsLog({
+    component: 'daily_planner',
+    event_type: 'overload',
+    success: sched.dropped.length === 0,
+    details: {
+      triggered: sched.dropped.length > 0,
+      deferred: sched.dropped.map(t => t.id ?? t.title ?? 'unknown'),
+    },
+  })
 
   const schedCheck = checkSchedule(enriched)
   if (!schedCheck.ok) {
     agentLog('planner_plan', { selfCheck: schedCheck.code })
+    obsLog({ component: 'daily_planner', event_type: 'error', success: false, details: { message: schedCheck.code } })
     return { result: { intent: 'plan', response: schedCheck.userMessage } }
   }
 
@@ -229,10 +239,20 @@ async function runAdjust(state, allTasks) {
   const planText2 = fmtPlanText(enriched2)
 
   agentLog('planner_plan', { via: 'adjust', levers: Object.keys(patch), blocks: sched2.blocks.length, dropped: sched2.dropped.length })
+  obsLog({
+    component: 'daily_planner',
+    event_type: 'overload',
+    success: sched2.dropped.length === 0,
+    details: {
+      triggered: sched2.dropped.length > 0,
+      deferred: sched2.dropped.map(t => t.id ?? t.title ?? 'unknown'),
+    },
+  })
 
   const schedCheck = checkSchedule(enriched2)
   if (!schedCheck.ok) {
     agentLog('planner_plan', { selfCheck: schedCheck.code })
+    obsLog({ component: 'daily_planner', event_type: 'error', success: false, details: { message: schedCheck.code } })
     return { result: { intent: 'plan', response: schedCheck.userMessage } }
   }
 

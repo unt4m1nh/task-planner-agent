@@ -1,0 +1,5 @@
+{"id":"g1","question":"What is the purpose of a sprint retrospective?","rubric":"Answer should mention reviewing what went well, what did not, and process improvement. Should reference the sprint cycle.","doc_source":"loop_test"}
+{"id":"g2","question":"How does Docker bridge networking work?","rubric":"Answer should explain that bridge network is the default for single-host networking and mention port binding or container communication.","doc_source":"loop_test"}
+{"id":"g3","question":"What are the three parts of a JWT?","rubric":"Answer must include header, payload, and signature. Should mention the dot-separated format or the structure.","doc_source":"loop_test"}
+{"id":"g4","question":"What is the difference between L1 and L2 regularization?","rubric":"L1 (Lasso) uses absolute values of weights; L2 (Ridge) uses squared weights. Both prevent overfitting.","doc_source":"loop_test"}
+{"id":"g5","question":"How does Kubernetes scale pods automatically?","rubric":"Should mention Horizontal Pod Autoscaler (HPA) and CPU or custom metrics as triggers for scaling.","doc_source":"loop_test"}

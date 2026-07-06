@@ -1,0 +1,9 @@
+node_modules
+*/node_modules
+*.db
+*.db-shm
+*.db-wal
+.git
+plan/
+eval/datasets/
+client/client/node_modules

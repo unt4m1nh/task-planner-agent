@@ -1,7 +1,7 @@
 import { createRequire } from 'module'
 import { interrupt } from '@langchain/langgraph'
 import { HITL } from './state.mjs'
-import { fmt, sanitizeQuery, agentLog, syncWire } from './utils.mjs'
+import { fmt, sanitizeQuery, agentLog, syncWire, obsLog } from './utils.mjs'
 
 const require = createRequire(import.meta.url)
 const { classify } = require('../classify/classify.js')
@@ -84,6 +84,7 @@ export async function todoExecute(state) {
   const { intent: type, id, title, due, priority, tags, status, source, fields, append } = slots
   const rawQuery = [slots.query, ...(tags || [])].filter(Boolean).join(' ')
   const query = sanitizeQuery(rawQuery)
+  const _toolStart = Date.now()
 
   let response, tasks, sessionContextPatch
 
@@ -183,6 +184,13 @@ export async function todoExecute(state) {
   }
 
   agentLog('todo_execute', { intent: type, id, title, response })
+  obsLog({
+    component: 'task_tool',
+    event_type: 'tool_call',
+    success: true,
+    latency_ms: Date.now() - _toolStart,
+    details: { name: type, input: { id: id ?? null, title: title ?? null, status: status ?? null, priority: priority ?? null } },
+  })
   return {
     result: { intent: type, response, ...(tasks ? { tasks } : {}) },
     ...(sessionContextPatch ? { sessionContext: sessionContextPatch } : {}),

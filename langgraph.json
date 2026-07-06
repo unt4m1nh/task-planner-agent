@@ -1,0 +1,8 @@
+{
+  "node_version": "20",
+  "dependencies": ["./server"],
+  "graphs": {
+    "todo_agent": "./server/src/agent/graph/graph.mjs:app"
+  },
+  "env": "./server/.env"
+}

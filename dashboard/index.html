@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Todo-Agent Observability Dashboard</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; background: #0f0f12; color: #e2e8f0; padding: 24px; }
+    h1 { font-size: 1.4rem; font-weight: 600; margin-bottom: 24px; color: #f8fafc; }
+    h2 { font-size: 0.9rem; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: #94a3b8; margin-bottom: 12px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .card { background: #1e1e2e; border: 1px solid #2d2d3f; border-radius: 10px; padding: 20px; }
+    .stat { font-size: 2rem; font-weight: 700; color: #818cf8; }
+    .label { font-size: 0.78rem; color: #64748b; margin-top: 4px; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+    th { text-align: left; padding: 6px 10px; color: #64748b; border-bottom: 1px solid #2d2d3f; }
+    td { padding: 6px 10px; border-bottom: 1px solid #1a1a2a; }
+    tr:last-child td { border-bottom: none; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.72rem; font-weight: 600; }
+    .badge-ok { background: #166534; color: #86efac; }
+    .badge-err { background: #7f1d1d; color: #fca5a5; }
+    .badge-null { background: #1e293b; color: #64748b; }
+    .refresh { float: right; font-size: 0.8rem; color: #64748b; cursor: pointer; }
+    .refresh:hover { color: #818cf8; }
+    .ts { color: #475569; font-size: 0.78rem; }
+    .bar-wrap { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+    .bar-label { min-width: 90px; font-size: 0.8rem; color: #94a3b8; }
+    .bar { height: 14px; background: #3730a3; border-radius: 3px; transition: width .3s; }
+    .bar-val { font-size: 0.78rem; color: #64748b; }
+    #status { font-size: 0.8rem; color: #475569; margin-bottom: 16px; }
+    .section-title { font-size: 1rem; font-weight: 600; color: #e2e8f0; margin: 24px 0 12px; }
+  </style>
+</head>
+<body>
+  <h1>Observability Dashboard <span class="refresh" onclick="load()">↻ Refresh</span></h1>
+  <div id="status">Loading…</div>
+
+  <div class="grid" id="kpis"></div>
+
+  <div class="section-title">Requests Over Time (by hour)</div>
+  <div class="card" id="timeline"></div>
+
+  <div class="section-title">Agent Usage</div>
+  <div class="card" id="agents"></div>
+
+  <div class="section-title">Recent Events</div>
+  <div class="card" id="events"></div>
+
+  <div class="section-title">Eval Scores Over Time</div>
+  <div class="card" id="evals"></div>
+
+  <script>
+    const API = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+      ? 'http://localhost:3000'
+      : ''
+
+    function badge(v) {
+      if (v === null || v === undefined) return '<span class="badge badge-null">—</span>'
+      return v
+        ? '<span class="badge badge-ok">ok</span>'
+        : '<span class="badge badge-err">fail</span>'
+    }
+
+    function pct(n) { return (n * 100).toFixed(1) + '%' }
+
+    async function load() {
+      document.getElementById('status').textContent = 'Refreshing…'
+      try {
+        const [sum, evts, evalRuns] = await Promise.all([
+          fetch(`${API}/api/obs/summary`).then(r => r.json()),
+          fetch(`${API}/api/obs/events?limit=50`).then(r => r.json()),
+          fetch(`${API}/api/obs/eval`).then(r => r.json()),
+        ])
+
+        renderKpis(sum)
+        renderTimeline(sum.requestsOverTime || [])
+        renderAgents(sum.perAgent || [])
+        renderEvents(evts.events || [])
+        renderEvals(evalRuns.runs || [])
+        document.getElementById('status').textContent = 'Last refreshed: ' + new Date().toLocaleTimeString()
+      } catch (e) {
+        document.getElementById('status').textContent = 'Error: ' + e.message
+      }
+    }
+
+    function renderKpis(s) {
+      const g = s.guardrailStats || {}
+      const er = s.errorRate || {}
+      document.getElementById('kpis').innerHTML = `
+        <div class="card"><div class="stat">${(g.total || 0)}</div><div class="label">Guardrail checks</div>
+          <div class="label" style="margin-top:8px">Block rate: <b>${pct(g.blockRate || 0)}</b> (${g.blocked || 0} blocked)</div></div>
+        <div class="card"><div class="stat">${s.avgRagIterations ?? '—'}</div><div class="label">Avg RAG iterations per session</div></div>
+        <div class="card"><div class="stat">${er.errors || 0}</div><div class="label">Errors</div>
+          <div class="label" style="margin-top:8px">Error rate: <b>${pct(er.rate || 0)}</b> of ${er.total || 0} events</div></div>
+      `
+    }
+
+    function renderTimeline(rows) {
+      if (!rows.length) { document.getElementById('timeline').innerHTML = '<span class="ts">No data yet</span>'; return }
+      const max = Math.max(...rows.map(r => r.count), 1)
+      document.getElementById('timeline').innerHTML = rows.slice(0, 24).map(r => `
+        <div class="bar-wrap">
+          <span class="bar-label ts">${r.hour}</span>
+          <div class="bar" style="width:${Math.round(r.count / max * 220)}px"></div>
+          <span class="bar-val">${r.count}</span>
+        </div>`).join('')
+    }
+
+    function renderAgents(rows) {
+      if (!rows.length) { document.getElementById('agents').innerHTML = '<span class="ts">No data yet</span>'; return }
+      const max = Math.max(...rows.map(r => r.count), 1)
+      document.getElementById('agents').innerHTML = rows.map(r => `
+        <div class="bar-wrap">
+          <span class="bar-label">${r.intent || 'unknown'}</span>
+          <div class="bar" style="width:${Math.round(r.count / max * 220)}px"></div>
+          <span class="bar-val">${r.count}</span>
+        </div>`).join('')
+    }
+
+    function renderEvents(rows) {
+      if (!rows.length) { document.getElementById('events').innerHTML = '<span class="ts">No events yet</span>'; return }
+      document.getElementById('events').innerHTML = `
+        <table>
+          <thead><tr><th>Time</th><th>Component</th><th>Type</th><th>OK</th><th>ms</th><th>Details</th></tr></thead>
+          <tbody>${rows.map(r => `
+            <tr>
+              <td class="ts">${r.ts.slice(11, 19)}</td>
+              <td>${r.component}</td>
+              <td>${r.event_type}</td>
+              <td>${badge(r.success)}</td>
+              <td class="ts">${r.latency_ms ?? '—'}</td>
+              <td class="ts" style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.details ? JSON.stringify(r.details).slice(0,80) : '—'}</td>
+            </tr>`).join('')}</tbody>
+        </table>`
+    }
+
+    function renderEvals(rows) {
+      if (!rows.length) { document.getElementById('evals').innerHTML = '<span class="ts">No eval runs yet. Run eval/* scripts to populate.</span>'; return }
+      document.getElementById('evals').innerHTML = `
+        <table>
+          <thead><tr><th>Time</th><th>Type</th><th>Score</th><th>N</th><th>Note</th></tr></thead>
+          <tbody>${rows.map(r => `
+            <tr>
+              <td class="ts">${r.ts.slice(0, 16)}</td>
+              <td>${r.eval_type}</td>
+              <td><b>${(r.score * 100).toFixed(1)}%</b></td>
+              <td class="ts">${r.n_cases}</td>
+              <td class="ts">${r.note || '—'}</td>
+            </tr>`).join('')}</tbody>
+        </table>`
+    }
+
+    load()
+  </script>
+</body>
+</html>

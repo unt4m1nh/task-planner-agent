@@ -1,0 +1,52 @@
+services:
+  core:
+    build:
+      context: .
+      dockerfile: Dockerfile.core
+    ports:
+      - "3000:3000"
+    volumes:
+      - data:/app/data
+      - ./task.json:/app/task.json
+    environment:
+      # LLM provider
+      LLM_PROVIDER: ${LLM_PROVIDER:-ollama}
+      OLLAMA_HOST: http://host.docker.internal:11434
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-gemma4:e2b}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
+      # RAG
+      RAG_EMBED_MODEL: ${RAG_EMBED_MODEL:-bge-m3}
+      RAG_EMBED_DIM: ${RAG_EMBED_DIM:-1024}
+      RAG_MAX_ITERATIONS: ${RAG_MAX_ITERATIONS:-2}
+      RAG_SIMILARITY_THRESHOLD: ${RAG_SIMILARITY_THRESHOLD:-0.8}
+      # Eval
+      EVAL_JUDGE_MODEL: ${EVAL_JUDGE_MODEL:-gemini-2.5-flash}
+      # DB paths (inside the named volume)
+      OBS_DB_PATH: /app/data/obs.db
+      RAG_DB_PATH: /app/data/rag.db
+      # Jira MCP (optional)
+      MCP_SERVER_URL: ${MCP_SERVER_URL:-}
+      MCP_WORK_KEY: ${MCP_WORK_KEY:-}
+      MCP_WIKI_KEY: ${MCP_WIKI_KEY:-}
+      MCP_CODE_KEY: ${MCP_CODE_KEY:-}
+      MCP_SOURCE: ${MCP_SOURCE:-wire}
+      MCP_QUERY: ${MCP_QUERY:-}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile.dashboard
+    ports:
+      - "8080:80"
+    depends_on:
+      - core
+    restart: unless-stopped
+
+volumes:
+  data:
+    # Named volume — survives docker compose down / up (teardown + recreate)
+    # All SQLite files (checkpoints, rag, obs, task store) live here

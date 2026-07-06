@@ -1,6 +1,6 @@
 import { createRequire } from 'module'
 import { interrupt } from '@langchain/langgraph'
-import { lastUserMsg, agentLog } from './utils.mjs'
+import { lastUserMsg, agentLog, obsLog } from './utils.mjs'
 
 const require = createRequire(import.meta.url)
 const { classify } = require('../classify/classify.js')
@@ -40,6 +40,7 @@ export async function routerNode(state) {
 
   if (state.plannerSlots && !state.route) {
     agentLog('router', { route: 'planner', via: 'fast-path', intent: state.plannerSlots.intent, turn: turnCount })
+    obsLog({ component: 'orchestrator', event_type: 'route', success: true, details: { intent: state.plannerSlots.intent, agents_invoked: ['planner'] } })
     return {
       route: 'planner',
       result: null,
@@ -57,6 +58,7 @@ export async function routerNode(state) {
     // creating/editing a task.
     if (ctx.lastPlanText && looksLikePlanFeedback(msg, classified)) {
       agentLog('router', { route: 'planner', via: 'plan-feedback-override', classifiedAs: classified.intent, turn: turnCount, msg })
+      obsLog({ component: 'orchestrator', event_type: 'route', success: true, details: { intent: 'plan', agents_invoked: ['planner'] } })
       return {
         route: 'planner',
         plannerSlots: { intent: 'plan', contextFallback: true },
@@ -78,6 +80,7 @@ export async function routerNode(state) {
     }
 
     agentLog('router', { route: 'todo', intent: classified.intent, turn: turnCount, msg })
+    obsLog({ component: 'orchestrator', event_type: 'route', success: true, details: { intent: classified.intent, agents_invoked: ['todo'] } })
     return {
       route: 'todo',
       todoSlots,
@@ -89,6 +92,7 @@ export async function routerNode(state) {
   }
   if (PLANNER_INTENTS.has(classified.intent)) {
     agentLog('router', { route: 'planner', intent: classified.intent, turn: turnCount, msg })
+    obsLog({ component: 'orchestrator', event_type: 'route', success: true, details: { intent: classified.intent, agents_invoked: ['planner'] } })
     return {
       route: 'planner',
       plannerSlots: classified,
@@ -101,6 +105,7 @@ export async function routerNode(state) {
   }
   if (RAG_INTENTS.has(classified.intent)) {
     agentLog('router', { route: 'rag', intent: classified.intent, turn: turnCount, msg })
+    obsLog({ component: 'orchestrator', event_type: 'route', success: true, details: { intent: classified.intent, agents_invoked: ['rag'] } })
     return {
       route: 'rag',
       ragSlots: { query: classified.query, originalQuery: classified.query, attempts: 0 },
@@ -114,6 +119,7 @@ export async function routerNode(state) {
 
   if (ctx.activeRoute && ctx.activeIntent) {
     agentLog('router', { route: ctx.activeRoute, via: 'context-fallback', activeIntent: ctx.activeIntent, turn: turnCount, msg })
+    obsLog({ component: 'orchestrator', event_type: 'route', success: true, details: { intent: ctx.activeIntent, agents_invoked: [ctx.activeRoute] } })
     if (ctx.activeRoute === 'todo') {
       return {
         route: 'todo',
@@ -150,6 +156,7 @@ export async function routerNode(state) {
   }
 
   agentLog('router', { route: 'unknown', intent: classified.intent, turn: turnCount, msg })
+  obsLog({ component: 'orchestrator', event_type: 'route', success: false, details: { intent: 'unknown', agents_invoked: [] } })
   return {
     route: 'unknown',
     todoSlots: null,

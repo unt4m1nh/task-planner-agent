@@ -3,6 +3,28 @@ import { createRequire } from 'module'
 const require = createRequire(import.meta.url)
 const store = require('../../store.js')
 const wire = require('../../adapters/wire.js')
+const { als } = require('../../obs/session.js')
+
+let _log = () => {}
+
+export function setLog(fn) {
+  _log = fn
+}
+
+export function obsLog({ component, event_type, success = null, latency_ms = null, details = {} }) {
+  try {
+    _log({
+      session_id: als.getStore()?.sessionId ?? null,
+      component,
+      event_type,
+      success,
+      latency_ms,
+      details,
+    })
+  } catch (err) {
+    console.error('[obs] log failed:', err.message)
+  }
+}
 
 export function lastUserMsg(state) {
   for (let i = state.messages.length - 1; i >= 0; i--) {

@@ -8,6 +8,9 @@ const { searchDocuments } = require('./rag/search')
 const { extractText } = require('./rag/extract')
 const store = require('./store')
 const wire = require('./adapters/wire')
+const obsLogger = require('./obs/logger')
+const { als } = require('./obs/session')
+const { getObsSummary, getEvalRuns, getRecentEvents } = require('./obs/queries')
 
 let _guardrails
 async function getGuardrails() {
@@ -42,10 +45,19 @@ app.options('*', (c) => c.text('', 204))
 
 // ── Graph (ESM — load once via dynamic import) ────────────────────────────────
 
-let graphPromise
+let _graphModule
+function getGraphModule() {
+  if (!_graphModule) {
+    _graphModule = import('./agent/graph/graph.mjs').then(m => {
+      m.setLog(obsLogger.log)
+      return m
+    })
+  }
+  return _graphModule
+}
+
 function getGraph() {
-  if (!graphPromise) graphPromise = import('./agent/graph/graph.mjs').then(m => m.app)
-  return graphPromise
+  return getGraphModule().then(m => m.app)
 }
 
 // ── /daily-planner slash command ──────────────────────────────────────────────
@@ -203,6 +215,7 @@ app.post('/api/chat', async (c) => {
   if (resume !== undefined) {
     userContent = typeof resume === 'string' ? resume : JSON.stringify(resume)
     const inputCheck = checkInput(userContent)
+    obsLogger.log({ session_id: tid, component: 'guardrail_in', event_type: 'check', success: inputCheck.ok, latency_ms: null, details: { passed: inputCheck.ok, reason: inputCheck.code ?? null } })
     if (!inputCheck.ok) {
       return c.json({ ok: true, threadId: tid, response: inputCheck.userMessage })
     }
@@ -218,6 +231,7 @@ app.post('/api/chat', async (c) => {
     userContent = lastMsg
 
     const inputCheck = checkInput(lastMsg)
+    obsLogger.log({ session_id: tid, component: 'guardrail_in', event_type: 'check', success: inputCheck.ok, latency_ms: null, details: { passed: inputCheck.ok, reason: inputCheck.code ?? null } })
     if (!inputCheck.ok) {
       return c.json({ ok: true, threadId: tid, response: inputCheck.userMessage })
     }
@@ -231,9 +245,12 @@ app.post('/api/chat', async (c) => {
 
   let stateValues
   try {
-    stateValues = await graph.invoke(input, config)
+    const _invokeStart = Date.now()
+    stateValues = await als.run({ sessionId: tid }, () => graph.invoke(input, config))
+    obsLogger.log({ session_id: tid, component: 'llm', event_type: 'llm_call', success: true, latency_ms: Date.now() - _invokeStart, details: { threadId: tid } })
   } catch (err) {
     console.error('[POST /api/chat] graph error:', err)
+    obsLogger.log({ session_id: tid, component: 'system', event_type: 'error', success: false, latency_ms: null, details: { message: err.message, stack: err.stack?.slice(0, 500) } })
     if (err instanceof LlmProviderError) {
       return c.json({ ok: true, threadId: tid, response: err.userMessage })
     }
@@ -258,6 +275,7 @@ app.post('/api/chat', async (c) => {
     ? new Set(store.readTasks().map(t => t.id))
     : null
   const outputCheck = checkOutput(r, { allTaskIds })
+  obsLogger.log({ session_id: tid, component: 'guardrail_out', event_type: 'check', success: outputCheck.ok, latency_ms: null, details: { passed: outputCheck.ok, reason: outputCheck.code ?? null } })
   if (!outputCheck.ok) {
     console.warn('[POST /api/chat] output guardrail fired:', outputCheck.code)
     return c.json({ ok: true, threadId: tid, response: outputCheck.userMessage })
@@ -286,6 +304,35 @@ app.post('/api/chat', async (c) => {
 app.get('/api/sessions', async (c) => {
   const history = await getHistory()
   return c.json({ ok: true, sessions: history.listSessions() })
+})
+
+// ── Observability read endpoints ──────────────────────────────────────────────
+
+app.get('/api/obs/summary', (c) => {
+  try {
+    return c.json({ ok: true, ...getObsSummary() })
+  } catch (err) {
+    return c.json({ ok: false, error: err.message }, 500)
+  }
+})
+
+app.get('/api/obs/events', (c) => {
+  const component = c.req.query('component') || undefined
+  const limit = parseInt(c.req.query('limit') || '100', 10)
+  try {
+    return c.json({ ok: true, events: getRecentEvents({ component, limit }) })
+  } catch (err) {
+    return c.json({ ok: false, error: err.message }, 500)
+  }
+})
+
+app.get('/api/obs/eval', (c) => {
+  const evalType = c.req.query('type') || undefined
+  try {
+    return c.json({ ok: true, runs: getEvalRuns(evalType) })
+  } catch (err) {
+    return c.json({ ok: false, error: err.message }, 500)
+  }
 })
 
 serve({ fetch: app.fetch, port: 3000 }, (info) => {

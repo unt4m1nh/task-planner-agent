@@ -1,5 +1,5 @@
 import { createRequire } from 'module'
-import { agentLog } from './utils.mjs'
+import { agentLog, obsLog } from './utils.mjs'
 
 const require = createRequire(import.meta.url)
 const { retrieveStep, gradeStep, rewriteStep, generateStep } = require('../../rag/agentic.js')
@@ -21,6 +21,17 @@ export async function ragGrade(state) {
   const { query, docs, attempts = 0 } = state.ragSlots
   const relevant = await gradeStep(query, docs)
   agentLog('rag_grade', { query, relevant, attempts })
+  obsLog({
+    component: 'rag_loop',
+    event_type: 'iteration',
+    success: relevant,
+    details: {
+      iteration_index: attempts,
+      similarity_score: relevant ? 1 : 0,
+      passed: relevant,
+      reformulated_query: query,
+    },
+  })
   return { ragSlots: { ...state.ragSlots, relevant, attempts } }
 }
 

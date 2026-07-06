@@ -1,0 +1,5 @@
+{"id":"c1","query":"sprint planning retrospective","expected_keywords":["sprint","retrospective"],"doc_id":"chunking_test_A"}
+{"id":"c2","query":"docker container networking bridge","expected_keywords":["docker","bridge","network"],"doc_id":"chunking_test_B"}
+{"id":"c3","query":"REST API JWT authentication bearer token","expected_keywords":["JWT","bearer","token"],"doc_id":"chunking_test_C"}
+{"id":"c4","query":"database index query performance B-tree","expected_keywords":["index","B-tree","performance"],"doc_id":"chunking_test_D"}
+{"id":"c5","query":"Python coroutine event loop asyncio","expected_keywords":["coroutine","asyncio","event"],"doc_id":"chunking_test_E"}

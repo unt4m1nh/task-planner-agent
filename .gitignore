@@ -7,3 +7,22 @@ rag.db-wal
 history.db
 history.db-shm
 history.db-wal
+
+# Observability DB (local, regenerable)
+obs.db
+obs.db-shm
+obs.db-wal
+
+# LangGraph API
+.langgraph_api
+
+# LangGraph checkpointer DB (local, regenerable)
+checkpoints.db
+checkpoints.db-shm
+checkpoints.db-wal
+
+# Local Claude Code settings
+.claude/settings.local.json
+
+# Scratch planning notes
+plan/

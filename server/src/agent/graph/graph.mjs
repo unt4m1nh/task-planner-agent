@@ -9,6 +9,7 @@ import { todoUnderstand, todoClarify, todoConfirm, todoExecute } from './nodes-t
 import { plannerUnderstand, plannerRank, plannerPlan, plannerPlanReview, plannerComplete, reorderConfirm } from './nodes-planner.mjs'
 import { ragRetrieve, ragGrade, ragRewrite, ragGenerate } from './nodes-rag.mjs'
 import { afterRouter, afterTodoUnderstand, afterTodoConfirm, afterPlannerUnderstand, afterPlannerPlan, afterPlannerPlanReview, afterRagGrade } from './edges.mjs'
+export { setLog } from './utils.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -51,7 +52,7 @@ graph
   .addEdge('rag_rewrite', 'rag_retrieve')
   .addEdge('rag_generate', END)
 
-const DB_PATH = path.resolve(__dirname, '../../../../checkpoints.db')
+const DB_PATH = process.env.CHECKPOINTS_DB_PATH || path.resolve(__dirname, '../../../../checkpoints.db')
 const checkpointer = SqliteSaver.fromConnString(DB_PATH)
 
 export const app = graph.compile({ checkpointer })

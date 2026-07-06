@@ -1,0 +1,5 @@
+{"id":"l1","type":"strong_first","query":"sprint planning retrospective velocity","doc_source":"loop_test","expected_iterations":1,"expected_pass":true}
+{"id":"l2","type":"strong_first","query":"docker bridge network container","doc_source":"loop_test","expected_iterations":1,"expected_pass":true}
+{"id":"l3","type":"strong_first","query":"JWT bearer token authentication header","doc_source":"loop_test","expected_iterations":1,"expected_pass":true}
+{"id":"l4","type":"unsatisfiable","query":"quantum entanglement neural implant blockchain yoga","doc_source":"loop_test","expected_iterations":2,"expected_pass":false}
+{"id":"l5","type":"unsatisfiable","query":"medieval alchemy philosopher stone transmutation","doc_source":"loop_test","expected_iterations":2,"expected_pass":false}
