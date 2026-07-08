@@ -2,7 +2,7 @@
 const path = require('path')
 const Database = require('better-sqlite3')
 
-const DB_PATH = process.env.OBS_DB_PATH || path.resolve(__dirname, '../../../obs.db')
+const DB_PATH = process.env.OBS_DB_PATH || path.resolve(__dirname, '../../../data/obs.db')
 
 let _db
 

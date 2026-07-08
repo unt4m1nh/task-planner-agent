@@ -3,7 +3,7 @@ const Database = require('better-sqlite3')
 const sqliteVec = require('sqlite-vec')
 
 const EMBED_DIM = parseInt(process.env.RAG_EMBED_DIM || '1024', 10)
-const DB_PATH = process.env.RAG_DB_PATH || path.resolve(__dirname, '../../../rag.db')
+const DB_PATH = process.env.RAG_DB_PATH || path.resolve(__dirname, '../../../data/rag.db')
 
 let db
 

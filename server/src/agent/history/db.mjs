@@ -6,7 +6,7 @@ const require = createRequire(import.meta.url)
 const Database = require('better-sqlite3')
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const DB_PATH = path.resolve(__dirname, '../../../../history.db')
+const DB_PATH = process.env.HISTORY_DB_PATH || path.resolve(__dirname, '../../../../data/history.db')
 
 let db
 

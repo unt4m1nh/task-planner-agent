@@ -1,25 +1,10 @@
-# RAG vector store (local, regenerable)
-rag.db
-rag.db-shm
-rag.db-wal
-
-# Chat history turns store (local, regenerable)
-history.db
-history.db-shm
-history.db-wal
-
-# Observability DB (local, regenerable)
-obs.db
-obs.db-shm
-obs.db-wal
+# SQLite databases (local, regenerable)
+data/*.db
+data/*.db-shm
+data/*.db-wal
 
 # LangGraph API
 .langgraph_api
-
-# LangGraph checkpointer DB (local, regenerable)
-checkpoints.db
-checkpoints.db-shm
-checkpoints.db-wal
 
 # Local Claude Code settings
 .claude/settings.local.json
