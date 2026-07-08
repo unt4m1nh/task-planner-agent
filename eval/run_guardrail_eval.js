@@ -25,8 +25,12 @@ const NOTE = process.argv.includes('--note')
   ? process.argv[process.argv.indexOf('--note') + 1]
   : null
 
-const BLOCK_CASES = fs.readFileSync(path.join(__dirname, 'datasets/guardrail_block_cases.jsonl'), 'utf8')
-  .split('\n').filter(Boolean).map(l => JSON.parse(l))
+const BLOCK_CASES = [
+  ...fs.readFileSync(path.join(__dirname, 'datasets/guardrail_block_cases.jsonl'), 'utf8')
+    .split('\n').filter(Boolean).map(l => JSON.parse(l)),
+  { id: 'b4', input: '\x01\x02\x03\x04\x05\x06list tasks', expected: 'INPUT_GARBAGE' },
+  { id: 'b5', input: '\x00\x01\x02\x03\x04\x05\x06\x07', expected: 'INPUT_GARBAGE' },
+]
 
 const ALLOW_CASES = fs.readFileSync(path.join(__dirname, 'datasets/guardrail_allow_cases.jsonl'), 'utf8')
   .split('\n').filter(Boolean).map(l => JSON.parse(l))

@@ -1,10 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Sidebar from './Sidebar'
 import ChatPanel, { type ChatPanelHandle } from './ChatPanel'
+import ObsDashboard from './ObsDashboard'
 import './App.css'
 import { listSessions, type Schedule, type SessionSummary } from './lib/api'
 
+type View = 'chat' | 'observe'
+
 function App() {
+  const [view, setView] = useState<View>('chat')
   const [schedule, setSchedule] = useState<Schedule | null>(null)
   const [sessions, setSessions] = useState<SessionSummary[]>([])
   const [activeSessionId, setActiveSessionId] = useState<string | undefined>(undefined)
@@ -40,13 +44,19 @@ function App() {
         activeSessionId={activeSessionId}
         onSelectSession={handleSelectSession}
         onNewChat={handleNewChat}
+        view={view}
+        onViewChange={setView}
       />
       <div className="main">
-        <ChatPanel
-          ref={chatRef}
-          onSchedule={setSchedule}
-          onThreadIdChange={handleThreadIdChange}
-        />
+        {view === 'chat' ? (
+          <ChatPanel
+            ref={chatRef}
+            onSchedule={setSchedule}
+            onThreadIdChange={handleThreadIdChange}
+          />
+        ) : (
+          <ObsDashboard />
+        )}
       </div>
     </div>
   )

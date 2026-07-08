@@ -152,6 +152,65 @@ export async function getSession(sessionId: string): Promise<{ session: SessionS
   return { session: data.session, turns: data.turns }
 }
 
+// ── Observability ────────────────────────────────────────────────────────────
+
+export interface ObsGuardrailStats {
+  total: number
+  blocked: number
+  blockRate: number
+}
+
+export interface ObsPerAgent {
+  intent: string
+  count: number
+}
+
+export interface ObsSummary {
+  guardrailStats: ObsGuardrailStats
+  avgRagIterations: number
+  errorRate: { total: number; errors: number; rate: number }
+  requestsOverTime: { hour: string; count: number }[]
+  perAgent: ObsPerAgent[]
+}
+
+export interface ObsEvent {
+  id: number
+  ts: string
+  session_id: string
+  component: string
+  event_type: string
+  success: boolean | null
+  latency_ms: number | null
+  details: Record<string, unknown> | null
+}
+
+export interface EvalRun {
+  id: number
+  ts: string
+  eval_type: string
+  score: number
+  n_cases: number
+  note: string | null
+}
+
+export async function getObsSummary(): Promise<ObsSummary> {
+  const res = await fetch(`${BASE_URL}/api/obs/summary`)
+  const data = await res.json()
+  return data as ObsSummary
+}
+
+export async function getObsEvents(limit = 50): Promise<ObsEvent[]> {
+  const res = await fetch(`${BASE_URL}/api/obs/events?limit=${limit}`)
+  const data = await res.json()
+  return (data.events ?? []) as ObsEvent[]
+}
+
+export async function getEvalRuns(): Promise<EvalRun[]> {
+  const res = await fetch(`${BASE_URL}/api/obs/eval`)
+  const data = await res.json()
+  return (data.runs ?? []) as EvalRun[]
+}
+
 export async function resumeChat(resume: string, threadId: string): Promise<ChatResponse> {
   const res = await fetch(`${BASE_URL}/api/chat`, {
     method: 'POST',

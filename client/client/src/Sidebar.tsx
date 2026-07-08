@@ -264,19 +264,31 @@ function NoPlan() {
 }
 
 export default function Sidebar({
-  schedule, sessions, activeSessionId, onSelectSession, onNewChat,
+  schedule, sessions, activeSessionId, onSelectSession, onNewChat, view, onViewChange,
 }: {
   schedule?: Schedule | null
   sessions: SessionSummary[]
   activeSessionId?: string
   onSelectSession: (id: string) => void
   onNewChat: () => void
+  view: 'chat' | 'observe'
+  onViewChange: (v: 'chat' | 'observe') => void
 }) {
   return (
     <aside className="sidebar">
       <div className="sidebar-brand">
         <span className="sidebar-mark">✦</span>
         <span className="sidebar-title">Task Agent</span>
+      </div>
+      <div className="sidebar-nav">
+        <button
+          className={`sidebar-nav-btn${view === 'chat' ? ' active' : ''}`}
+          onClick={() => onViewChange('chat')}
+        >Chat</button>
+        <button
+          className={`sidebar-nav-btn${view === 'observe' ? ' active' : ''}`}
+          onClick={() => onViewChange('observe')}
+        >Observe</button>
       </div>
 
       <SessionList
