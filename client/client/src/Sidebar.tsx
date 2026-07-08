@@ -1,56 +1,5 @@
 import { useEffect, useState } from 'react'
-import { getProvider, setProvider, type Provider, type Schedule } from './lib/api'
-
-const MODELS: { id: Provider; name: string; tier: string; detail: string; glyph: React.ReactNode }[] = [
-  {
-    id: 'ollama',
-    name: 'Ollama',
-    tier: 'Local',
-    detail: 'gemma4:2b',
-    glyph: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="4" y="9" width="16" height="11" rx="3" />
-        <path d="M7 9V6.5a2 2 0 0 1 2-2M17 9V6.5a2 2 0 0 0-2-2" />
-        <circle cx="9.5" cy="14" r="1" fill="currentColor" stroke="none" />
-        <circle cx="14.5" cy="14" r="1" fill="currentColor" stroke="none" />
-        <path d="M10 17.5h4" />
-      </svg>
-    ),
-  },
-  {
-    id: 'gemini',
-    name: 'Gemma 4',
-    tier: 'Cloud',
-    detail: 'gemma-4-27b',
-    glyph: (
-      <svg viewBox="0 0 24 24" fill="currentColor">
-        <path d="M12 2c.5 4.5 3.5 7.5 8 8-4.5.5-7.5 3.5-8 8-.5-4.5-3.5-7.5-8-8 4.5-.5 7.5-3.5 8-8Z" />
-      </svg>
-    ),
-  },
-  {
-    id: 'gemini-flash',
-    name: 'Flash',
-    tier: 'Cloud',
-    detail: 'gemini-2.5-flash',
-    glyph: (
-      <svg viewBox="0 0 24 24" fill="currentColor">
-        <path d="M13 2 4.5 13.5H11L10 22l8.5-11.5H13L13 2Z" />
-      </svg>
-    ),
-  },
-  {
-    id: 'gemma-31b',
-    name: 'Gemma 4 31B',
-    tier: 'Cloud',
-    detail: 'gemma-4-31b-it',
-    glyph: (
-      <svg viewBox="0 0 24 24" fill="currentColor">
-        <path d="M12 2c.5 4.5 3.5 7.5 8 8-4.5.5-7.5 3.5-8 8-.5-4.5-3.5-7.5-8-8 4.5-.5 7.5-3.5 8-8Z" />
-      </svg>
-    ),
-  },
-]
+import { type Schedule, type SessionSummary } from './lib/api'
 
 const SOURCE_LABELS: Record<string, string> = {
   jira: 'Jira',
@@ -244,6 +193,63 @@ function PlanTimeline({ schedule }: { schedule: Schedule }) {
   )
 }
 
+function NewChatIcon() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M8 3.5v9M3.5 8h9" />
+    </svg>
+  )
+}
+
+function fmtSessionTime(ms: number): string {
+  const diff = Date.now() - ms
+  const min = Math.floor(diff / 60_000)
+  if (min < 1) return 'just now'
+  if (min < 60) return `${min}m ago`
+  const hr = Math.floor(min / 60)
+  if (hr < 24) return `${hr}h ago`
+  const day = Math.floor(hr / 24)
+  if (day < 7) return `${day}d ago`
+  return new Date(ms).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
+function SessionList({
+  sessions, activeSessionId, onSelectSession, onNewChat,
+}: {
+  sessions: SessionSummary[]
+  activeSessionId?: string
+  onSelectSession: (id: string) => void
+  onNewChat: () => void
+}) {
+  return (
+    <div className="sidebar-sessions">
+      <div className="sidebar-sessions-header">
+        <span className="sidebar-sessions-label">Chats</span>
+        <button className="new-chat-btn" onClick={onNewChat} title="Start a new chat">
+          <NewChatIcon />
+          New
+        </button>
+      </div>
+      <div className="sidebar-sessions-list">
+        {sessions.length === 0 && (
+          <span className="sidebar-sessions-empty">No past chats yet</span>
+        )}
+        {sessions.map(s => (
+          <button
+            key={s.sessionId}
+            className={`session-item${s.sessionId === activeSessionId ? ' active' : ''}`}
+            onClick={() => onSelectSession(s.sessionId)}
+            title={s.title ?? 'Untitled chat'}
+          >
+            <span className="session-item-title">{s.title || 'Untitled chat'}</span>
+            <span className="session-item-meta">{fmtSessionTime(s.updatedAt)} · {s.turnCount} turn{s.turnCount !== 1 ? 's' : ''}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function NoPlan() {
   return (
     <div className="sidebar-plan">
@@ -257,23 +263,15 @@ function NoPlan() {
   )
 }
 
-export default function Sidebar({ schedule }: { schedule?: Schedule | null }) {
-  const [provider, setProviderState] = useState<Provider>('ollama')
-
-  useEffect(() => {
-    getProvider().then(setProviderState).catch(() => {})
-  }, [])
-
-  async function choose(next: Provider) {
-    if (next === provider) return
-    setProviderState(next)
-    try {
-      await setProvider(next)
-    } catch {
-      // revert is handled implicitly on next load; keep optimistic UI
-    }
-  }
-
+export default function Sidebar({
+  schedule, sessions, activeSessionId, onSelectSession, onNewChat,
+}: {
+  schedule?: Schedule | null
+  sessions: SessionSummary[]
+  activeSessionId?: string
+  onSelectSession: (id: string) => void
+  onNewChat: () => void
+}) {
   return (
     <aside className="sidebar">
       <div className="sidebar-brand">
@@ -281,26 +279,12 @@ export default function Sidebar({ schedule }: { schedule?: Schedule | null }) {
         <span className="sidebar-title">Task Agent</span>
       </div>
 
-      <div className="model-switch">
-        <span className="model-switch-label">Model</span>
-        <div className="model-options">
-          {MODELS.map(m => (
-            <button
-              key={m.id}
-              className={`model-option${provider === m.id ? ' active' : ''}`}
-              onClick={() => choose(m.id)}
-              aria-pressed={provider === m.id}
-            >
-              <span className="model-glyph">{m.glyph}</span>
-              <span className="model-meta">
-                <span className="model-name">{m.name}</span>
-                <span className="model-detail">{m.tier} · {m.detail}</span>
-              </span>
-              <span className="model-dot" aria-hidden />
-            </button>
-          ))}
-        </div>
-      </div>
+      <SessionList
+        sessions={sessions}
+        activeSessionId={activeSessionId}
+        onSelectSession={onSelectSession}
+        onNewChat={onNewChat}
+      />
 
       <div className="sidebar-divider" />
 

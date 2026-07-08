@@ -116,6 +116,42 @@ export async function uploadDocument(file: File): Promise<UploadDocumentResponse
   return data as UploadDocumentResponse
 }
 
+export interface SessionSummary {
+  sessionId: string
+  title: string | null
+  createdAt: number
+  updatedAt: number
+  turnCount: number
+}
+
+export interface SessionTurn {
+  turnId: number
+  sessionId: string
+  role: 'user' | 'assistant'
+  content: string
+  intent: string | null
+  resolvedContext: Record<string, unknown> | null
+  createdAt: number
+}
+
+export async function listSessions(): Promise<SessionSummary[]> {
+  const res = await fetch(`${BASE_URL}/api/sessions`)
+  const data = await res.json()
+  if (!res.ok || !data.ok) {
+    throw new Error(data?.error ?? `Request failed with status ${res.status}`)
+  }
+  return data.sessions as SessionSummary[]
+}
+
+export async function getSession(sessionId: string): Promise<{ session: SessionSummary; turns: SessionTurn[] }> {
+  const res = await fetch(`${BASE_URL}/api/sessions/${encodeURIComponent(sessionId)}`)
+  const data = await res.json()
+  if (!res.ok || !data.ok) {
+    throw new Error(data?.error ?? `Request failed with status ${res.status}`)
+  }
+  return { session: data.session, turns: data.turns }
+}
+
 export async function resumeChat(resume: string, threadId: string): Promise<ChatResponse> {
   const res = await fetch(`${BASE_URL}/api/chat`, {
     method: 'POST',

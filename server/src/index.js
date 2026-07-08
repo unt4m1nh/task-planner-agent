@@ -306,6 +306,18 @@ app.get('/api/sessions', async (c) => {
   return c.json({ ok: true, sessions: history.listSessions() })
 })
 
+// GET /api/sessions/:id — full turn history for one session, so the client
+// can rehydrate it. Read-only — no HITL gate.
+app.get('/api/sessions/:id', async (c) => {
+  const history = await getHistory()
+  const sessionId = c.req.param('id')
+  const session = history.listSessions().find(s => s.sessionId === sessionId)
+  if (!session) {
+    return c.json({ ok: false, error: 'session not found' }, 404)
+  }
+  return c.json({ ok: true, session, turns: history.getAllTurns(sessionId) })
+})
+
 // ── Observability read endpoints ──────────────────────────────────────────────
 
 app.get('/api/obs/summary', (c) => {

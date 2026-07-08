@@ -1,5 +1,12 @@
-import { useEffect, useRef, useState } from 'react'
-import { sendChat, resumeChat, uploadDocument, type Task, type TaskStatus, type Schedule, type AwaitingInput } from './lib/api'
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
+import { sendChat, resumeChat, uploadDocument, getSession, getProvider, setProvider, type Task, type TaskStatus, type Schedule, type AwaitingInput, type Provider } from './lib/api'
+
+const MODELS: { id: Provider; name: string; tier: 'Local' | 'Cloud'; detail: string }[] = [
+  { id: 'ollama', name: 'Ollama', tier: 'Local', detail: 'gemma4:2b' },
+  { id: 'gemini', name: 'Gemma 4', tier: 'Cloud', detail: 'gemma-4-27b' },
+  { id: 'gemini-flash', name: 'Flash', tier: 'Cloud', detail: 'gemini-2.5-flash' },
+  { id: 'gemma-31b', name: 'Gemma 4 31B', tier: 'Cloud', detail: 'gemma-4-31b-it' },
+]
 
 interface Message {
   role: 'user' | 'agent' | 'error'
@@ -25,6 +32,15 @@ function UploadIcon() {
     <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
       <path d="M8 2v8M5 5l3-3 3 3" />
       <path d="M2.5 10.5v2a1.5 1.5 0 0 0 1.5 1.5h8a1.5 1.5 0 0 0 1.5-1.5v-2" />
+    </svg>
+  )
+}
+
+function ModelSparkleIcon() {
+  return (
+    <svg viewBox="0 0 16 16" fill="currentColor">
+      <path d="M8.5 1.5c.3 2.6 2 4.3 4.6 4.6-2.6.3-4.3 2-4.6 4.6-.3-2.6-2-4.3-4.6-4.6 2.6-.3 4.3-2 4.6-4.6Z" />
+      <path d="M13 11c.15 1.2.9 2 2.1 2.15-1.2.15-1.95.9-2.1 2.1-.15-1.2-.9-1.95-2.1-2.1 1.2-.15 1.95-.95 2.1-2.15Z" />
     </svg>
   )
 }
@@ -334,22 +350,84 @@ function ApproveWidget({
 
 // ── ChatPanel ─────────────────────────────────────────────────────────────────
 
-export default function ChatPanel({ onSchedule }: { onSchedule?: (s: Schedule) => void }) {
-  const [messages, setMessages] = useState<Message[]>([
-    { role: 'agent', text: "Hi! Ask me to list, add, edit, delete, or reorder tasks — or ask what to work on next." },
-  ])
+const GREETING: Message = {
+  role: 'agent',
+  text: "Hi! Ask me to list, add, edit, delete, or reorder tasks — or ask what to work on next.",
+}
+
+export interface ChatPanelHandle {
+  loadSession: (sessionId: string) => void
+  newChat: () => void
+}
+
+const ChatPanel = forwardRef<ChatPanelHandle, {
+  onSchedule?: (s: Schedule) => void
+  onThreadIdChange?: (threadId: string | undefined) => void
+}>(function ChatPanel({ onSchedule, onThreadIdChange }, ref) {
+  const [messages, setMessages] = useState<Message[]>([GREETING])
   const [input, setInput] = useState('')
   const [isSending, setIsSending] = useState(false)
   const [threadId, setThreadId] = useState<string | undefined>(undefined)
   const [isUploading, setIsUploading] = useState(false)
+  const [isLoadingSession, setIsLoadingSession] = useState(false)
+  const [provider, setProviderState] = useState<Provider>('ollama')
   const bottomRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const pendingHitlScheduleRef = useRef<Schedule | null>(null)
+  const latestTokenRef = useRef(0)
+
+  useEffect(() => {
+    getProvider().then(setProviderState).catch(() => {})
+  }, [])
+
+  async function handleProviderChange(next: Provider) {
+    if (next === provider) return
+    setProviderState(next)
+    try {
+      await setProvider(next)
+    } catch {
+      // revert is handled implicitly on next load; keep optimistic UI
+    }
+  }
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, isSending])
+
+  useImperativeHandle(ref, () => ({
+    newChat() {
+      latestTokenRef.current += 1
+      setMessages([GREETING])
+      setThreadId(undefined)
+      pendingHitlScheduleRef.current = null
+      onThreadIdChange?.(undefined)
+    },
+    loadSession(sessionId: string) {
+      const requestToken = ++latestTokenRef.current
+      setIsLoadingSession(true)
+      getSession(sessionId)
+        .then(({ turns }) => {
+          if (requestToken !== latestTokenRef.current) return
+          const loaded: Message[] = turns.map(t => ({
+            role: t.role === 'user' ? 'user' : 'agent',
+            text: t.content,
+          }))
+          setMessages(loaded.length ? loaded : [GREETING])
+          setThreadId(sessionId)
+          pendingHitlScheduleRef.current = null
+          onThreadIdChange?.(sessionId)
+        })
+        .catch(err => {
+          if (requestToken !== latestTokenRef.current) return
+          const msg = err instanceof Error ? err.message : 'Failed to load session.'
+          setMessages(prev => [...prev, { role: 'error', text: msg }])
+        })
+        .finally(() => {
+          if (requestToken === latestTokenRef.current) setIsLoadingSession(false)
+        })
+    },
+  }), [onThreadIdChange])
 
   function autoResize() {
     const el = textareaRef.current
@@ -362,7 +440,10 @@ export default function ChatPanel({ onSchedule }: { onSchedule?: (s: Schedule) =
     setIsSending(true)
     try {
       const res = await resPromise
-      if (res.threadId) setThreadId(res.threadId)
+      if (res.threadId) {
+        if (res.threadId !== threadId) onThreadIdChange?.(res.threadId)
+        setThreadId(res.threadId)
+      }
 
       if (res.awaitingInput) {
         if (res.awaitingInput.schedule) pendingHitlScheduleRef.current = res.awaitingInput.schedule
@@ -393,21 +474,23 @@ export default function ChatPanel({ onSchedule }: { onSchedule?: (s: Schedule) =
     }
   }
 
+  const busy = isSending || isLoadingSession
+
   function send(text: string) {
-    if (!text || isSending) return
+    if (!text || busy) return
     setMessages(prev => [...prev, { role: 'user', text }])
     handleResponse(sendChat(text, threadId))
   }
 
   function resume(value: string) {
-    if (!threadId || isSending) return
+    if (!threadId || busy) return
     setMessages(prev => [...prev, { role: 'user', text: value }])
     handleResponse(resumeChat(value, threadId))
   }
 
   function handleSubmit() {
     const text = input.trim()
-    if (!text || isSending) return
+    if (!text || busy) return
     setInput('')
     if (textareaRef.current) textareaRef.current.style.height = 'auto'
     send(text)
@@ -441,11 +524,12 @@ export default function ChatPanel({ onSchedule }: { onSchedule?: (s: Schedule) =
 
   // Find the last agent message with awaitingInput (the active HITL widget)
   const lastAwaitingIdx = messages.reduce((last, m, i) => m.awaitingInput ? i : last, -1)
+  const currentModel = MODELS.find(m => m.id === provider) ?? MODELS[0]
 
   return (
     <>
       <header className="topbar">
-        <span className="topbar-heading">New conversation</span>
+        <span className="topbar-heading">{threadId ? 'Conversation' : 'New conversation'}</span>
       </header>
 
       <div className="chat-messages">
@@ -476,10 +560,10 @@ export default function ChatPanel({ onSchedule }: { onSchedule?: (s: Schedule) =
                           : <AgentText text={m.text} />
                         }
                         {isActiveHitl && m.awaitingInput.kind === 'clarify' && (
-                          <ClarifyWidget awaiting={m.awaitingInput} onSubmit={resume} disabled={isSending} />
+                          <ClarifyWidget awaiting={m.awaitingInput} onSubmit={resume} disabled={busy} />
                         )}
                         {isActiveHitl && m.awaitingInput.kind === 'approve' && (
-                          <ApproveWidget awaiting={m.awaitingInput} onSubmit={resume} disabled={isSending} />
+                          <ApproveWidget awaiting={m.awaitingInput} onSubmit={resume} disabled={busy} />
                         )}
                       </>
                     )
@@ -494,7 +578,7 @@ export default function ChatPanel({ onSchedule }: { onSchedule?: (s: Schedule) =
           )
         })}
 
-        {isSending && (
+        {(isSending || isLoadingSession) && (
           <div className="chat-message-row agent">
             <span className="avatar agent-avatar">✦</span>
             <div className="pending-dots">
@@ -515,14 +599,31 @@ export default function ChatPanel({ onSchedule }: { onSchedule?: (s: Schedule) =
             onChange={e => { setInput(e.target.value); autoResize() }}
             onKeyDown={handleKeyDown}
             placeholder="Ask about your tasks…"
-            disabled={isSending}
+            disabled={busy}
           />
           <div className="chat-input-controls">
             <div className="chat-input-controls-left">
+              <div className="model-select-wrap" title="Choose the model">
+                <span className="model-select-glyph"><ModelSparkleIcon /></span>
+                <select
+                  className="model-select"
+                  value={provider}
+                  onChange={e => handleProviderChange(e.target.value as Provider)}
+                  aria-label="Choose the model"
+                >
+                  {MODELS.map(m => (
+                    <option key={m.id} value={m.id}>{m.name} · {m.tier} · {m.detail}</option>
+                  ))}
+                </select>
+                <span className={`model-select-tier tier-${currentModel.tier.toLowerCase()}`}>
+                  <span className="model-select-dot" aria-hidden />
+                  {currentModel.tier}
+                </span>
+              </div>
               <button
                 className="plan-day-btn"
                 onClick={() => send('/daily-planner')}
-                disabled={isSending}
+                disabled={busy}
                 title="Build a schedule for today (/daily-planner)"
               >
                 <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round">
@@ -551,7 +652,7 @@ export default function ChatPanel({ onSchedule }: { onSchedule?: (s: Schedule) =
             <button
               className="send-btn"
               onClick={handleSubmit}
-              disabled={isSending || !input.trim()}
+              disabled={busy || !input.trim()}
               aria-label="Send"
             >
               <SendIcon />
@@ -561,4 +662,6 @@ export default function ChatPanel({ onSchedule }: { onSchedule?: (s: Schedule) =
       </div>
     </>
   )
-}
+})
+
+export default ChatPanel

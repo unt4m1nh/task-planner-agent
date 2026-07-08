@@ -74,6 +74,17 @@ function getRecentTurns(sessionId, n, opts = {}) {
   return rows.reverse().map(toTurn)
 }
 
+// Full history for a session, in CHRONOLOGICAL order — used to rehydrate a
+// past session in the client (not the windowed slice used for prompting).
+function getAllTurns(sessionId, opts = {}) {
+  const db = getDb(opts.dbPath)
+  const rows = db.prepare(
+    `SELECT turn_id, session_id, role, content, intent, resolved_context, created_at
+     FROM turns WHERE session_id = ? ORDER BY created_at ASC`
+  ).all(sessionId)
+  return rows.map(toTurn)
+}
+
 function listSessions(opts = {}) {
   const db = getDb(opts.dbPath)
   return db.prepare(`
@@ -110,6 +121,7 @@ export {
   getOrCreateSession,
   addTurn,
   getRecentTurns,
+  getAllTurns,
   listSessions,
   getSessionResolvedContext,
   formatWindowText,
