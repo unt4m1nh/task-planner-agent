@@ -52,7 +52,7 @@ graph
   .addEdge('rag_rewrite', 'rag_retrieve')
   .addEdge('rag_generate', END)
 
-const DB_PATH = process.env.CHECKPOINTS_DB_PATH || path.resolve(__dirname, '../../../../checkpoints.db')
+const DB_PATH = process.env.CHECKPOINTS_DB_PATH || path.resolve(__dirname, '../../../../data/checkpoints.db')
 const checkpointer = SqliteSaver.fromConnString(DB_PATH)
 
 export const app = graph.compile({ checkpointer })
