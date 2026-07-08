@@ -10,7 +10,13 @@
     "mcp:discover": "node src/adapters/discover.js",
     "rag:inspect": "node src/rag/inspect.js",
     "rag:compare": "node src/rag/scripts/compare-chunking.js",
-    "rag:reingest": "node src/rag/scripts/reingest-documents.js"
+    "rag:reingest": "node src/rag/scripts/reingest-documents.js",
+    "eval": "NODE_PATH=node_modules node ../eval/run_all.js",
+    "eval:guardrail": "NODE_PATH=node_modules node ../eval/run_guardrail_eval.js",
+    "eval:retrieval": "NODE_PATH=node_modules node ../eval/run_retrieval_eval.js",
+    "eval:chunking": "NODE_PATH=node_modules node ../eval/run_chunking_eval.js",
+    "eval:loop": "NODE_PATH=node_modules node ../eval/run_loop_eval.js",
+    "eval:generation": "NODE_PATH=node_modules node ../eval/run_generation_eval.js"
   },
   "keywords": [],
   "author": "",

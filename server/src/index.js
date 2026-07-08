@@ -84,6 +84,11 @@ function parseDailyPlanner(message) {
 
 // ── Routes ────────────────────────────────────────────────────────────────────
 
+app.get('/dashboard', (c) => {
+  const html = require('fs').readFileSync(require('path').resolve(__dirname, '../../dashboard/index.html'), 'utf8')
+  return c.html(html)
+})
+
 app.get('/', (c) => c.json({ message: 'Task Agent API', version: 2 }))
 
 app.get('/api/provider', (c) =>
